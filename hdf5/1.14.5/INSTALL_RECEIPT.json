@@ -1,0 +1,123 @@
+{
+  "homebrew_version": "4.4.4-74-g5fd34f4",
+  "used_options": [
+
+  ],
+  "unused_options": [
+
+  ],
+  "built_as_bottle": true,
+  "poured_from_bottle": true,
+  "loaded_from_api": true,
+  "installed_as_dependency": false,
+  "installed_on_request": true,
+  "changed_files": [
+    "bin/h5fc",
+    "bin/h5hlfc",
+    "lib/libhdf5.settings",
+    "lib/pkgconfig/hdf5.pc",
+    "lib/pkgconfig/hdf5_cpp.pc",
+    "lib/pkgconfig/hdf5_fortran.pc",
+    "lib/pkgconfig/hdf5_hl.pc",
+    "lib/pkgconfig/hdf5_hl_cpp.pc",
+    "lib/pkgconfig/hdf5_hl_fortran.pc"
+  ],
+  "time": 1737552730,
+  "source_modified_time": 1727712484,
+  "compiler": "clang",
+  "aliases": [
+    "hdf5@1.14"
+  ],
+  "runtime_dependencies": [
+    {
+      "full_name": "gmp",
+      "version": "6.3.0",
+      "revision": 0,
+      "pkg_version": "6.3.0",
+      "declared_directly": false
+    },
+    {
+      "full_name": "isl",
+      "version": "0.27",
+      "revision": 0,
+      "pkg_version": "0.27",
+      "declared_directly": false
+    },
+    {
+      "full_name": "mpfr",
+      "version": "4.2.1",
+      "revision": 0,
+      "pkg_version": "4.2.1",
+      "declared_directly": false
+    },
+    {
+      "full_name": "libmpc",
+      "version": "1.3.1",
+      "revision": 0,
+      "pkg_version": "1.3.1",
+      "declared_directly": false
+    },
+    {
+      "full_name": "lz4",
+      "version": "1.10.0",
+      "revision": 0,
+      "pkg_version": "1.10.0",
+      "declared_directly": false
+    },
+    {
+      "full_name": "xz",
+      "version": "5.6.3",
+      "revision": 0,
+      "pkg_version": "5.6.3",
+      "declared_directly": false
+    },
+    {
+      "full_name": "zstd",
+      "version": "1.5.6",
+      "revision": 0,
+      "pkg_version": "1.5.6",
+      "declared_directly": false
+    },
+    {
+      "full_name": "gcc",
+      "version": "14.2.0",
+      "revision": 1,
+      "pkg_version": "14.2.0_1",
+      "declared_directly": true
+    },
+    {
+      "full_name": "libaec",
+      "version": "1.1.3",
+      "revision": 0,
+      "pkg_version": "1.1.3",
+      "declared_directly": true
+    },
+    {
+      "full_name": "pkgconf",
+      "version": "2.3.0",
+      "revision": 1,
+      "pkg_version": "2.3.0_1",
+      "declared_directly": true
+    }
+  ],
+  "source": {
+    "spec": "stable",
+    "versions": {
+      "stable": "1.14.5",
+      "head": null,
+      "version_scheme": 1
+    },
+    "path": "/Users/charlieclose/Library/Caches/Homebrew/api/formula.jws.json",
+    "tap_git_head": null,
+    "tap": "homebrew/core"
+  },
+  "arch": "arm64",
+  "built_on": {
+    "os": "Macintosh",
+    "os_version": "macOS 15",
+    "cpu_family": "dunno",
+    "xcode": "16.1",
+    "clt": "16.1.0.0.1.1729049160",
+    "preferred_perl": "5.34"
+  }
+}

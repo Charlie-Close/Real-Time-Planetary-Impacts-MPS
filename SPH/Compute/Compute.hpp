@@ -1,0 +1,120 @@
+//
+//  Compute.hpp
+//  SPH
+//
+//  Created by Charlie Close on 22/01/2025.
+//
+
+#ifndef Compute_hpp
+#define Compute_hpp
+
+#include <Foundation/Foundation.hpp>
+#include <Metal/Metal.hpp>
+#include <QuartzCore/QuartzCore.hpp>
+#include <simd/simd.h>
+#include <string>
+#include <vector>
+#include <AppKit/AppKit.hpp>
+#include <MetalKit/MetalKit.hpp>
+#include "hdfHandler.hpp"
+
+
+class Compute {
+public:
+    Compute(MTL::Device* device);
+    void updateOctreeBuffer(MTL::Device* device);
+    void gravitationalPass(MTL::CommandBuffer* commandBuffer);
+    void densityPass(MTL::CommandBuffer* commandBuffer);
+    void accelerationPass(MTL::CommandBuffer* commandBuffer);
+    void stepPass(MTL::CommandBuffer* commandBuffer);
+    
+    void sort(MTL::CommandBuffer* commandBuffer);
+
+
+    // Public buffers (as used by other shaders)
+    MTL::Buffer* positionBuffer;
+    MTL::Buffer* _materialIdBuffer;
+    
+    int nParticles;
+
+private:
+    void buildShaders(MTL::Device* device);
+    void buildBuffers(MTL::Device* device, MTL::CommandQueue* commandQueue);
+    void loadInitialConditions(MTL::Device* device, MTL::CommandQueue* commandQueue, DataStruct data);
+    void updateOctreeData(MTL::Device* device);
+    void encodeCommand(MTL::ComputeCommandEncoder* computeEncoder, MTL::ComputePipelineState* command, int size);
+    
+    std::vector<std::vector<int>> treeLevels;
+    std::vector<std::vector<int>> treeLevelsTemp;
+    std::vector<int> octreeData;
+    int nodeValues;
+    bool updating = false;
+    int nBlocks;
+    int prevGravDataSize = 0;
+    int prevTreeValuesSize = 0;
+    int prevParentIndicesSize = 0;
+    
+    int cellsPerDim;
+    float cellSize;
+
+    MTL::ComputePipelineState* _densityPSO;
+    MTL::ComputePipelineState* _accelerationPSO;
+    MTL::ComputePipelineState* _gravityPSO;
+    MTL::ComputePipelineState* _upTreePSO;
+    MTL::ComputePipelineState* _downTreePSO;
+    MTL::ComputePipelineState* _mStepPSO;
+    
+    MTL::ComputePipelineState* _hashPSO;
+    MTL::ComputePipelineState* _histPSO;
+    MTL::ComputePipelineState* _scanPSO;
+    MTL::ComputePipelineState* _sumPSO;
+    MTL::ComputePipelineState* _sortPSO;
+    MTL::ComputePipelineState* _initialisePSO;
+    MTL::ComputePipelineState* _findPosPSO;
+
+
+    
+    MTL::Buffer* _velocityBuffer;
+    MTL::Buffer* _accelerationBuffer;
+    MTL::Buffer* _densityBuffer;
+    MTL::Buffer* _internalEnergyBuffer;
+    MTL::Buffer* _massBuffer;
+    MTL::Buffer* _pressureBuffer;
+    MTL::Buffer* _smoothingLengthBuffer;
+    MTL::Buffer* _gradientTermsBuffer;
+    MTL::Buffer* _speedOfSoundBuffer;
+    MTL::Buffer* _dInternalEnergyBuffer;
+    MTL::Buffer* _potentialGradientBuffer;
+    MTL::Buffer* _cellArrayi;
+    MTL::Buffer* _cellArrayj;
+    MTL::Buffer* _bucketHist;
+    MTL::Buffer* _bucketOffset;
+    MTL::Buffer* _particleOffset;
+    MTL::Buffer* _ittr[4];
+    MTL::Buffer* _nParticles;
+    MTL::Buffer* _nBlocks;
+    MTL::Buffer* _cellStart;
+    MTL::Buffer* _cellEnd;
+    MTL::Buffer* _cellSize;
+    MTL::Buffer* _cellsPerDim;
+    MTL::Buffer* _tree;
+    MTL::Buffer* _treeTmp;
+    MTL::Buffer* _treeValues;
+    MTL::Buffer* _parentIndexes;
+    MTL::Buffer* _leafPointers;
+    MTL::Buffer* _localGravi;
+    MTL::Buffer* _localGravj;
+    MTL::Buffer* _isAlive;
+    std::vector<MTL::Buffer*> _treeLevelBuffers;
+    MTL::Buffer* _debug;
+    MTL::Buffer* _false;
+    MTL::Buffer* _true;
+    MTL::Buffer* _dt;
+    MTL::Buffer* _balsara;
+
+    
+    MTL::Texture* _forsterite;
+    MTL::Texture* _Fe85Si15;
+};
+
+#endif /* Compute_hpp */

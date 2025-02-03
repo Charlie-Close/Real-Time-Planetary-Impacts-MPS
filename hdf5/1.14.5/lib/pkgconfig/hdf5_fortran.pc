@@ -1,0 +1,16 @@
+prefix=/opt/homebrew/Cellar/hdf5/1.14.5
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+moddir=${prefix}/include
+
+Name: hdf5_fortran
+Description: HDF5 (Hierarchical Data Format 5) Software Library
+Version: 1.14.5
+
+Cflags: -I${includedir}
+Fflags: -I${moddir}
+Libs: -L${libdir}  -lhdf5_fortran
+Requires: hdf5 = 1.14.5
+Libs.private:  -lhdf5_fortran 
+Requires.private: hdf5 = 1.14.5
