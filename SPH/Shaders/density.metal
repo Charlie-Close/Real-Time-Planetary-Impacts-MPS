@@ -13,7 +13,7 @@
 
 constant float minRho = 1e-6;
 constant float maxRho = 2.98e-2;
-constant float minU = 1e+4;
+constant float minU = 1e+3;
 constant float maxU = 8.80519e+10;
 
 kernel void density(device float3* positions,
@@ -39,6 +39,10 @@ kernel void density(device float3* positions,
                     texture2d<float, access::sample> texFe [[texture(1)]],
                     uint index [[thread_position_in_grid]])
 {
+    if (index == 0) {
+        *dt = 10000 * 100;
+    }
+    
     int ind = cellData[index].y;
     if (!isAlive[ind]) {
         return;
@@ -59,7 +63,7 @@ kernel void density(device float3* positions,
     float eps = 1;
     int count = 0;
     
-    while (eps > 0.01 and count < 5) {
+    while (eps > 0.001 and count < 50) {
         CellToScanRange range = setCellsToScanDynamic(position, *cellSize, *cellsPerDim, h_i);
         density = 0;
         density_h = 0;
@@ -104,6 +108,7 @@ kernel void density(device float3* positions,
 //        float sig = mass_i * pow(1.2348 / h_i, 3) - density;
 //        float newH = min(h_i * (1 + sig / (3 * density * omega)), 1.f);
         float newH = min(1.2348 * pow(mass_i / density, 1.f / 3), .5f);
+//        float newH = min(1.2348 * pow(mass_i / density, 1.f / 3), .2f);
         eps = abs(newH - h_i) / h_i;
         h_i = newH;
         count++;
@@ -121,6 +126,11 @@ kernel void density(device float3* positions,
     float u = internalEnergies[ind] * pow(10.f, 12);
     float materialId = materialIds[ind];
     
+    if (density < minRho or u < minU) {
+        isAlive[ind] = false;
+        return;
+    }
+    
     float uCoord = log(u / minU) / log(maxU / minU);
     float rhoCoord = log(density / minRho) / log(maxRho / minRho);
     float2 uv = float2(uCoord, rhoCoord);
@@ -134,8 +144,4 @@ kernel void density(device float3* positions,
     speedsOfSound[ind] = pc.y;
     
     balsara[ind] = velDiv / (velDiv + length(velCurl) + 1e-4 * (pc.y / h_i));
-    
-    if (index == 0) {
-        *dt = 10000 * 100;
-    }
 }

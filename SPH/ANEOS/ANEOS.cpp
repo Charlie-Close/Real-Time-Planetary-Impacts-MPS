@@ -117,7 +117,7 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
     table.rho = new float[resolution];
     table.u = new float[resolution];
     table.minRho = 1;
-    table.minU = 10000;
+    table.minU = 1000;
     table.maxRho = 29800;
     table.maxU = 8.80519e+10;
     for (int i = 0; i < resolution; i++) {

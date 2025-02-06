@@ -18,11 +18,31 @@
 #include <MetalKit/MetalKit.hpp>
 #include "hdfHandler.hpp"
 
+#define P 2
+#define N_EXPANSION_TERMS ((P+1)*(P+2)*(P+3)/6)
+
+typedef struct {
+    simd::float3 pos;
+    simd::float3 min;
+    simd::float3 max;
+    float size;
+    float expansion[N_EXPANSION_TERMS];
+    float power[P+1];
+    float minGrav;
+} Multipole;
+
+
+typedef struct {
+    simd::float3 pos;
+    float expansion[N_EXPANSION_TERMS];
+} Local;
+
 
 class Compute {
 public:
     Compute(MTL::Device* device);
     void updateOctreeBuffer(MTL::Device* device);
+    void updateOctreeBufferTest(MTL::Device* device);
     void gravitationalPass(MTL::CommandBuffer* commandBuffer);
     void densityPass(MTL::CommandBuffer* commandBuffer);
     void accelerationPass(MTL::CommandBuffer* commandBuffer);
@@ -50,9 +70,9 @@ private:
     int nodeValues;
     bool updating = false;
     int nBlocks;
-    int prevGravDataSize = 0;
-    int prevTreeValuesSize = 0;
-    int prevParentIndicesSize = 0;
+    long prevGravDataSize = 0;
+    long prevTreeValuesSize = 0;
+    long prevParentIndicesSize = 0;
     
     int cellsPerDim;
     float cellSize;
@@ -99,12 +119,14 @@ private:
     MTL::Buffer* _cellsPerDim;
     MTL::Buffer* _tree;
     MTL::Buffer* _treeTmp;
-    MTL::Buffer* _treeValues;
+    MTL::Buffer* _multipoleExpansions;
+    MTL::Buffer* _localExpansion;
     MTL::Buffer* _parentIndexes;
     MTL::Buffer* _leafPointers;
     MTL::Buffer* _localGravi;
     MTL::Buffer* _localGravj;
     MTL::Buffer* _isAlive;
+    MTL::Buffer* _gravAbs;
     std::vector<MTL::Buffer*> _treeLevelBuffers;
     MTL::Buffer* _debug;
     MTL::Buffer* _false;

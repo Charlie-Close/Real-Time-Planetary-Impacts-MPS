@@ -7,6 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5B49053E2D53CCDC0038674B /* M2L.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B49053D2D53CCDC0038674B /* M2L.metal */; };
+		5B4905402D53CD910038674B /* accept.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B49053F2D53CD910038674B /* accept.metal */; };
+		5B4905422D53CEEB0038674B /* derivatives.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B4905412D53CEEB0038674B /* derivatives.metal */; };
+		5B4905442D53CF5B0038674B /* M2M.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B4905432D53CF5B0038674B /* M2M.metal */; };
+		5B4905462D53CFA50038674B /* L2P.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B4905452D53CFA50038674B /* L2P.metal */; };
+		5B4905482D53CFCD0038674B /* P2M.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B4905472D53CFCD0038674B /* P2M.metal */; };
+		5B49054A2D53D0070038674B /* helpers.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B4905492D53D0070038674B /* helpers.metal */; };
+		5B49054C2D53D27A0038674B /* L2L.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B49054B2D53D27A0038674B /* L2L.metal */; };
 		5B51FEF72D4D4E780085BF37 /* sort.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B51FEF62D4D4E780085BF37 /* sort.metal */; };
 		5B52166C2D47E114003F7B44 /* ANEOS.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B52166B2D47E114003F7B44 /* ANEOS.cpp */; };
 		5B5C9BBE2D411FEE003302F2 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B5C9BBC2D411FEE003302F2 /* main.cpp */; };
@@ -35,7 +43,6 @@
 		5B5C9C1B2D41611D003302F2 /* octree.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B5C9C192D41611D003302F2 /* octree.cpp */; };
 		5B5C9C232D416B78003302F2 /* cellsToScan.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B5C9C202D416B78003302F2 /* cellsToScan.metal */; };
 		5B6086972D42604D0037C449 /* tree.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B6086962D42604D0037C449 /* tree.metal */; };
-		5B60869D2D42E7490037C449 /* poles.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B60869B2D42E7490037C449 /* poles.metal */; };
 		5B6086A12D43D3D90037C449 /* ParticleMesh.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B6086A02D43D3D90037C449 /* ParticleMesh.cpp */; };
 /* End PBXBuildFile section */
 
@@ -64,6 +71,16 @@
 
 /* Begin PBXFileReference section */
 		5B45357B2D4F7AB7009F35F7 /* morton.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = morton.h; sourceTree = "<group>"; };
+		5B49053D2D53CCDC0038674B /* M2L.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = M2L.metal; sourceTree = "<group>"; };
+		5B49053F2D53CD910038674B /* accept.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = accept.metal; sourceTree = "<group>"; };
+		5B4905412D53CEEB0038674B /* derivatives.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = derivatives.metal; sourceTree = "<group>"; };
+		5B4905432D53CF5B0038674B /* M2M.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = M2M.metal; sourceTree = "<group>"; };
+		5B4905452D53CFA50038674B /* L2P.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = L2P.metal; sourceTree = "<group>"; };
+		5B4905472D53CFCD0038674B /* P2M.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = P2M.metal; sourceTree = "<group>"; };
+		5B4905492D53D0070038674B /* helpers.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = helpers.metal; sourceTree = "<group>"; };
+		5B49054B2D53D27A0038674B /* L2L.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = L2L.metal; sourceTree = "<group>"; };
+		5B49054D2D53F1080038674B /* demo_impactor_n60.hdf5 */ = {isa = PBXFileReference; lastKnownFileType = file; path = demo_impactor_n60.hdf5; sourceTree = "<group>"; };
+		5B49054E2D53F2890038674B /* demo_impact_n60.hdf5 */ = {isa = PBXFileReference; lastKnownFileType = file; path = demo_impact_n60.hdf5; sourceTree = "<group>"; };
 		5B4ED79F2D4BBE3F00F0505B /* demo_impact_n50.hdf5 */ = {isa = PBXFileReference; lastKnownFileType = file; path = demo_impact_n50.hdf5; sourceTree = "<group>"; };
 		5B51FEF62D4D4E780085BF37 /* sort.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = sort.metal; sourceTree = "<group>"; };
 		5B52166A2D47E114003F7B44 /* ANEOS.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = ANEOS.hpp; sourceTree = "<group>"; };
@@ -113,7 +130,6 @@
 		5B5C9C202D416B78003302F2 /* cellsToScan.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = cellsToScan.metal; sourceTree = "<group>"; };
 		5B5C9C212D416B78003302F2 /* cellsToScan.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = cellsToScan.h; sourceTree = "<group>"; };
 		5B6086962D42604D0037C449 /* tree.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = tree.metal; sourceTree = "<group>"; };
-		5B60869B2D42E7490037C449 /* poles.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = poles.metal; sourceTree = "<group>"; };
 		5B60869E2D42E7510037C449 /* poles.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = poles.h; sourceTree = "<group>"; };
 		5B60869F2D43D3D90037C449 /* ParticleMesh.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = ParticleMesh.hpp; sourceTree = "<group>"; };
 		5B6086A02D43D3D90037C449 /* ParticleMesh.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ParticleMesh.cpp; sourceTree = "<group>"; };
@@ -174,6 +190,8 @@
 				5B5C9BEF2D412674003302F2 /* hdfHandler */,
 				5B5C9BF52D4126FF003302F2 /* earth_impact_0000.hdf5 */,
 				5B4ED79F2D4BBE3F00F0505B /* demo_impact_n50.hdf5 */,
+				5B49054E2D53F2890038674B /* demo_impact_n60.hdf5 */,
+				5B49054D2D53F1080038674B /* demo_impactor_n60.hdf5 */,
 				5B5C9C152D414145003302F2 /* demo_impact_n40.hdf5 */,
 				5B52166D2D47E1B6003F7B44 /* ANEOS_forsterite_S19.txt */,
 				5B52166E2D4A5170003F7B44 /* ANEOS_Fe85Si15_S20.txt */,
@@ -349,8 +367,15 @@
 		5B60869C2D42E7490037C449 /* poles */ = {
 			isa = PBXGroup;
 			children = (
-				5B60869B2D42E7490037C449 /* poles.metal */,
 				5B60869E2D42E7510037C449 /* poles.h */,
+				5B49053D2D53CCDC0038674B /* M2L.metal */,
+				5B49053F2D53CD910038674B /* accept.metal */,
+				5B4905412D53CEEB0038674B /* derivatives.metal */,
+				5B4905432D53CF5B0038674B /* M2M.metal */,
+				5B4905452D53CFA50038674B /* L2P.metal */,
+				5B4905472D53CFCD0038674B /* P2M.metal */,
+				5B4905492D53D0070038674B /* helpers.metal */,
+				5B49054B2D53D27A0038674B /* L2L.metal */,
 			);
 			path = poles;
 			sourceTree = "<group>";
@@ -419,14 +444,17 @@
 				5B5C9C1B2D41611D003302F2 /* octree.cpp in Sources */,
 				5B5C9C0B2D413137003302F2 /* density.metal in Sources */,
 				5B5C9C0E2D4133A1003302F2 /* eos.metal in Sources */,
+				5B4905402D53CD910038674B /* accept.metal in Sources */,
 				5B5C9BE92D412373003302F2 /* Particles.cpp in Sources */,
+				5B4905482D53CFCD0038674B /* P2M.metal in Sources */,
+				5B49054A2D53D0070038674B /* helpers.metal in Sources */,
 				5B5C9BDB2D4120ED003302F2 /* ViewDelegate.cpp in Sources */,
 				5B5C9BE42D412186003302F2 /* Buffers.cpp in Sources */,
-				5B60869D2D42E7490037C449 /* poles.metal in Sources */,
 				5B5C9BDC2D4120ED003302F2 /* Render.cpp in Sources */,
 				5B5C9C172D414465003302F2 /* gravity.metal in Sources */,
 				5B5C9BDD2D4120ED003302F2 /* ViewPass.m in Sources */,
 				5B6086A12D43D3D90037C449 /* ParticleMesh.cpp in Sources */,
+				5B4905462D53CFA50038674B /* L2P.metal in Sources */,
 				5B5C9BF42D4126B1003302F2 /* Compute.cpp in Sources */,
 				5B5C9BEC2D4124AA003302F2 /* render.metal in Sources */,
 				5B5C9C062D412F06003302F2 /* step.metal in Sources */,
@@ -435,10 +463,14 @@
 				5B5C9BDE2D4120ED003302F2 /* AppDelegate.cpp in Sources */,
 				5B5C9BDF2D4120ED003302F2 /* Camera.cpp in Sources */,
 				5B5C9C142D413649003302F2 /* accelerations.metal in Sources */,
+				5B49053E2D53CCDC0038674B /* M2L.metal in Sources */,
 				5B51FEF72D4D4E780085BF37 /* sort.metal in Sources */,
 				5B5C9BF02D412674003302F2 /* hdfHandler.cpp in Sources */,
 				5B5C9BE02D4120ED003302F2 /* ViewExtender.mm in Sources */,
 				5B5C9BBE2D411FEE003302F2 /* main.cpp in Sources */,
+				5B4905422D53CEEB0038674B /* derivatives.metal in Sources */,
+				5B4905442D53CF5B0038674B /* M2M.metal in Sources */,
+				5B49054C2D53D27A0038674B /* L2L.metal in Sources */,
 				5B5C9C232D416B78003302F2 /* cellsToScan.metal in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

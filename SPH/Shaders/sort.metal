@@ -88,7 +88,6 @@ kernel void scan(device uint2* cellParticles,
         count += bucketHist[i * 256 + index];
         bucketHist[i * 256 + index] = count;
     }
-//    bucketOffset[index] = count;
 
     if (index < 255) {
         bucketOffset[index + 1] = count;
@@ -113,63 +112,6 @@ kernel void sort(device uint2* cellParticles,
     uint pOff = particleOffsets[index];
     newCellParticles[bOff + pOff + blOffset] = cellParticles[index];
 }
-
-
-
-//kernel void scan(device uint2* cellParticles,
-//                 device uint* bucketHist,
-//                 device uint* bucketOffset,
-//                 device uint* particleOffsets,
-//                 device uint* ittr,
-//                 const device int* nParticles,
-//                 uint index [[thread_position_in_grid]])
-//{
-//    int blockSize = 256;
-//    uint shift = (*ittr) * 8;
-//    int sumHist[256];
-//    for (int i = 0; i < 256; i++) {
-//        sumHist[i] = 0;
-//    }
-//    for (uint i = 0; i < index; i++) {
-//        for (int j = 0; j < 256; j++) {
-//            sumHist[j] += bucketHist[i * 256 + j];
-//        }
-//    }
-//    
-//    for (int i = blockSize * index; i < min(blockSize * ((int)index + 1), (*nParticles)); i++) {
-//        uint bucketIndex = (cellParticles[i].x >> shift) & 0xFF;
-//        particleOffsets[i] += sumHist[bucketIndex];
-//    }
-//    if (blockSize * ((int)index + 1) >= (*nParticles)) {
-//        int count = 0;
-//        for (int i = 0; i < 256; i++) {
-//            bucketOffset[i] = count;
-//            count += sumHist[i] + bucketHist[index * 256 + i];
-//        }
-//    }
-//}
-//
-//kernel void sort(device uint2* cellParticles,
-//                 device uint2* newCellParticles,
-//                 device uint* bucketOffset,
-//                 device uint* particleOffsets,
-//                 device uint* ittr,
-//                 uint index [[thread_position_in_grid]])
-//{
-//    uint shift = (*ittr) * 8;
-//    uint bucketIndex = (cellParticles[index].x >> shift) & 0xFF;
-//    uint bOff = bucketOffset[bucketIndex];
-//    uint pOff = particleOffsets[index];
-//    newCellParticles[bOff + pOff] = cellParticles[index];
-//}
-
-
-
-
-
-
-
-
 
 kernel void initialise(device uint* cellStarts,
                        device uint* cellEnds,

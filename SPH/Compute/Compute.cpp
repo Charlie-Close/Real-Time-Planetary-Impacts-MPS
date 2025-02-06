@@ -20,6 +20,7 @@
 
 Compute::Compute(MTL::Device* device) {
 //    DataStruct data = readHDFFile("earth_impact_0000.hdf5");
+//    DataStruct data = readHDFFile("demo_impact_n60.hdf5");
     DataStruct data = readHDFFile("demo_impact_n50.hdf5");
 //    DataStruct data = readHDFFile("demo_impact_n40.hdf5");
     
@@ -43,6 +44,12 @@ Compute::Compute(MTL::Device* device) {
 // -------------------------------- //
 
 void Compute::loadInitialConditions(MTL::Device* device, MTL::CommandQueue* commandQueue, DataStruct data) {
+    ANEOSTable forTable = loadANEOSDataFromFile("ANEOS_forsterite_S19.txt", 1024);
+    ANEOSTable feTable = loadANEOSDataFromFile("ANEOS_Fe85Si15_S20.txt", 1024);
+    
+    _forsterite = createRG32FloatTexture(device, commandQueue, forTable);
+    _Fe85Si15 = createRG32FloatTexture(device, commandQueue, feTable);
+    
     // Write all the data to the buffers
     writeDataToBuffer(positionBuffer, data.positions);
     writeDataToPrivateBuffer(device, commandQueue, _velocityBuffer, data.velocities);
@@ -68,13 +75,6 @@ void Compute::loadInitialConditions(MTL::Device* device, MTL::CommandQueue* comm
     writeDataToBuffer(_true, true);
 
     
-    
-    ANEOSTable forTable = loadANEOSDataFromFile("ANEOS_forsterite_S19.txt", 1024);
-    ANEOSTable feTable = loadANEOSDataFromFile("ANEOS_Fe85Si15_S20.txt", 1024);
-    
-    _forsterite = createRG32FloatTexture(device, commandQueue, forTable);
-    _Fe85Si15 = createRG32FloatTexture(device, commandQueue, feTable);
-    
     writeDataToPrivateBuffer(device, commandQueue, _cellSize, cellSize);
     writeDataToPrivateBuffer(device, commandQueue, _cellsPerDim, cellsPerDim);
     
@@ -86,24 +86,26 @@ void Compute::updateOctreeBuffer(MTL::Device* device) {
     if (updating) {
         return;
     }
+    
     treeLevels = treeLevelsTemp;
-    _treeValues->release();
-    int treeDataSize = nodeValues * sizeof(float) * 25;
+    
+    long treeDataSize = nodeValues;
     if (treeDataSize > prevTreeValuesSize) {
-        treeDataSize *= 1.2;
-        _treeValues = device->newBuffer(treeDataSize, MTL::ResourceStorageModePrivate);
+        treeDataSize *= 1.2f;
+        _multipoleExpansions->release();
+        _localExpansion->release();
+        _parentIndexes->release();
+        _multipoleExpansions = device->newBuffer(treeDataSize * sizeof(Multipole), MTL::ResourceStorageModePrivate);
+        _localExpansion = device->newBuffer(treeDataSize * sizeof(Local), MTL::ResourceStorageModePrivate);
+        _parentIndexes = device->newBuffer(treeDataSize * sizeof(uint), MTL::ResourceStorageModePrivate);
+        prevTreeValuesSize = treeDataSize;
     }
-    int parentIndexesSize = nodeValues * sizeof(uint);
-    if (parentIndexesSize > prevParentIndicesSize) {
-        parentIndexesSize *= 1.2;
-        _parentIndexes = device->newBuffer(parentIndexesSize, MTL::ResourceStorageModePrivate);
-        prevParentIndicesSize = parentIndexesSize;
-    }
+
     _tree->release();
     _tree = _treeTmp;
     
     _treeLevelBuffers.clear();
-    int maxSize = 0;
+    long maxSize = 0;
     for (int i = 0; i < treeLevels.size(); i++) {
         MTL::Buffer* treeLevelBuffer = device->newBuffer(treeLevels[i].size() * sizeof(int), MTL::ResourceStorageModeShared);
         if (i != treeLevels.size() - 1) {
@@ -113,7 +115,7 @@ void Compute::updateOctreeBuffer(MTL::Device* device) {
         _treeLevelBuffers.push_back(treeLevelBuffer);
     }
     
-    int gravDataSize = maxSize * sizeof(int) * 8192;
+    long gravDataSize = maxSize * sizeof(int) * 8192;
     if (gravDataSize > prevGravDataSize) {
         gravDataSize *= 1.2;
         _localGravi->release();
@@ -123,19 +125,64 @@ void Compute::updateOctreeBuffer(MTL::Device* device) {
         prevGravDataSize = gravDataSize;
     }
     
+    updating = true;
     std::thread([this](MTL::Device* _device) {
         this->updateOctreeData(_device);
     }, device).detach();
-    
-    
 }
 
+void Compute::updateOctreeBufferTest(MTL::Device* device) {
+//    if (updating) {
+//        return;
+//    }
+//    
+//    treeLevels = treeLevelsTemp;
+//    
+//    long treeDataSize = nodeValues;
+//    if (treeDataSize > prevTreeValuesSize) {
+//        treeDataSize *= 1.5f;
+//        _multipoleExpansions->release();
+//        _localExpansion->release();
+//        _parentIndexes->release();
+//        _multipoleExpansions = device->newBuffer(treeDataSize * sizeof(Multipole), MTL::ResourceStorageModePrivate);
+//        _localExpansion = device->newBuffer(treeDataSize * sizeof(Local), MTL::ResourceStorageModePrivate);
+//        _parentIndexes = device->newBuffer(treeDataSize * sizeof(uint), MTL::ResourceStorageModePrivate);
+//        prevTreeValuesSize = treeDataSize;
+//    }
+//
+//    _tree->release();
+//    _tree = _treeTmp;
+//    
+//    _treeLevelBuffers.clear();
+//    long maxSize = 0;
+//    for (int i = 0; i < treeLevels.size(); i++) {
+//        MTL::Buffer* treeLevelBuffer = device->newBuffer(treeLevels[i].size() * sizeof(int), MTL::ResourceStorageModeShared);
+//        if (i != treeLevels.size() - 1) {
+//            maxSize = fmax(maxSize, treeLevels[i].size());
+//        }
+//        writeDataToBuffer(treeLevelBuffer, treeLevels[i]);
+//        _treeLevelBuffers.push_back(treeLevelBuffer);
+//    }
+//    
+//    long gravDataSize = maxSize * sizeof(int) * 8192;
+//    if (gravDataSize > prevGravDataSize) {
+//        gravDataSize *= 1.5;
+//        _localGravi->release();
+//        _localGravj->release();
+//        _localGravi = device->newBuffer(gravDataSize, MTL::ResourceStorageModePrivate);
+//        _localGravj = device->newBuffer(gravDataSize, MTL::ResourceStorageModePrivate);
+//        prevGravDataSize = gravDataSize;
+//    }
+//    
+//    updating = true;
+//    std::thread([this](MTL::Device* _device) {
+//        this->updateOctreeData(_device);
+//    }, device).detach();
+}
+
+
 void Compute::updateOctreeData(MTL::Device* device) {
-    updating = true;
     simd_float3* positions = static_cast<simd_float3*>(positionBuffer->contents());
-//    int* debug = static_cast<int*>(_debug->contents());
-//    std::cout << *debug << std::endl;
-//    *debug = 0;
     bool* isAlive = static_cast<bool*>(_isAlive->contents());
     buildOctree(positions, isAlive, nParticles, octreeData, treeLevelsTemp, nodeValues, 8);
     _treeTmp = device->newBuffer(octreeData.size() * sizeof(int), MTL::ResourceStorageModeShared);
@@ -186,6 +233,7 @@ void Compute::buildBuffers(MTL::Device* device, MTL::CommandQueue *commandQueue)
     _false = device->newBuffer(sizeof(bool), MTL::ResourceStorageModeShared);
     _true = device->newBuffer(sizeof(bool), MTL::ResourceStorageModeShared);
     _dt = device->newBuffer(sizeof(float), MTL::ResourceStorageModePrivate);
+    _gravAbs = device->newBuffer(sizeof(float) * nParticles, MTL::ResourceStorageModePrivate);
     _tree = nullptr;
 
 }
@@ -198,7 +246,7 @@ void Compute::buildShaders(MTL::Device* device) {
         
     MTL::Function* densityFunction = defaultLibrary->newFunction(NS::String::string("density", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* accelerationFunction = defaultLibrary->newFunction(NS::String::string("acceleration", NS::StringEncoding::UTF8StringEncoding));
-    MTL::Function* gravityFunction = defaultLibrary->newFunction(NS::String::string("gravity", NS::StringEncoding::UTF8StringEncoding));
+//    MTL::Function* gravityFunction = defaultLibrary->newFunction(NS::String::string("gravity", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* upPassFunction = defaultLibrary->newFunction(NS::String::string("upPass", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* downPassFunction = defaultLibrary->newFunction(NS::String::string("downPass", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* stepFunction = defaultLibrary->newFunction(NS::String::string("step", NS::StringEncoding::UTF8StringEncoding));
@@ -215,7 +263,7 @@ void Compute::buildShaders(MTL::Device* device) {
     // Create a compute pipeline state object.
     _densityPSO = device->newComputePipelineState(densityFunction, error);
     _accelerationPSO = device->newComputePipelineState(accelerationFunction, error);
-    _gravityPSO = device->newComputePipelineState(gravityFunction, error);
+//    _gravityPSO = device->newComputePipelineState(gravityFunction, error);
     _upTreePSO = device->newComputePipelineState(upPassFunction, error);
     _downTreePSO = device->newComputePipelineState(downPassFunction, error);
     _mStepPSO = device->newComputePipelineState(stepFunction, error);
@@ -326,7 +374,7 @@ void Compute::sort(MTL::CommandBuffer *commandBuffer) {
     encodeCommand(computeEncoder, _hashPSO, nParticles);
     computeEncoder->endEncoding();
     
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 2; i++) {
         
         MTL::ComputeCommandEncoder* cEncHist = commandBuffer->computeCommandEncoder();
         cEncHist->setBuffer((i % 2 == 0 ? _cellArrayi : _cellArrayj), 0, 0);
@@ -387,9 +435,11 @@ void Compute::gravitationalPass(MTL::CommandBuffer* commandBuffer) {
         computeEncoder->setBuffer(positionBuffer, 0, 0);
         computeEncoder->setBuffer(_massBuffer, 0, 1);
         computeEncoder->setBuffer(_tree, 0, 2);
-        computeEncoder->setBuffer(_treeValues, 0, 3);
-        computeEncoder->setBuffer(_treeLevelBuffers[i], 0, 4);
-        computeEncoder->setBuffer(_parentIndexes, 0, 5);
+        computeEncoder->setBuffer(_multipoleExpansions, 0, 3);
+        computeEncoder->setBuffer(_localExpansion, 0, 4);
+        computeEncoder->setBuffer(_treeLevelBuffers[i], 0, 5);
+        computeEncoder->setBuffer(_parentIndexes, 0, 6);
+        computeEncoder->setBuffer(_gravAbs, 0, 7);
 
         encodeCommand(computeEncoder, _upTreePSO, treeLevels[i].size());
 
@@ -400,18 +450,18 @@ void Compute::gravitationalPass(MTL::CommandBuffer* commandBuffer) {
     for (int i = 0; i < _treeLevelBuffers.size(); i++) {
         MTL::ComputeCommandEncoder* computeEncoder = commandBuffer->computeCommandEncoder();
         assert(computeEncoder != nil);
-        
+    
         computeEncoder->setBuffer(positionBuffer, 0, 0);
         computeEncoder->setBuffer(_accelerationBuffer, 0, 1);
         computeEncoder->setBuffer(_massBuffer, 0, 2);
         computeEncoder->setBuffer(_tree, 0, 3);
-        computeEncoder->setBuffer(_treeValues, 0, 4);
-        computeEncoder->setBuffer(_treeLevelBuffers[i], 0, 5);
-        computeEncoder->setBuffer(_parentIndexes, 0, 6);
-        computeEncoder->setBuffer(i % 2 == 0 ? _localGravi : _localGravj, 0, 7);
-        computeEncoder->setBuffer(i % 2 == 0 ? _localGravj : _localGravi, 0, 8);
-        computeEncoder->setBuffer(_debug, 0, 9);
-        computeEncoder->setBuffer(i == _treeLevelBuffers.size() - 1 ? _true : _false, 0, 10);
+        computeEncoder->setBuffer(_multipoleExpansions, 0, 4);
+        computeEncoder->setBuffer(_localExpansion, 0, 5);
+        computeEncoder->setBuffer(_treeLevelBuffers[i], 0, 6);
+        computeEncoder->setBuffer(_parentIndexes, 0, 7);
+        computeEncoder->setBuffer(i % 2 == 0 ? _localGravi : _localGravj, 0, 8);
+        computeEncoder->setBuffer(i % 2 == 0 ? _localGravj : _localGravi, 0, 9);
+        computeEncoder->setBuffer(_gravAbs, 0, 10);
 
 
         encodeCommand(computeEncoder, _downTreePSO, treeLevels[i].size());
@@ -419,25 +469,6 @@ void Compute::gravitationalPass(MTL::CommandBuffer* commandBuffer) {
         //  End the compute pass.
         computeEncoder->endEncoding();
     }
-    
-    
-//    MTL::ComputeCommandEncoder* computeEncoder = commandBuffer->computeCommandEncoder();
-//    assert(computeEncoder != nil);
-//
-//    computeEncoder->setBuffer(positionBuffer, 0, 0);
-//    computeEncoder->setBuffer(_massBuffer, 0, 1);
-//    computeEncoder->setBuffer(_accelerationBuffer, 0, 2);
-//    computeEncoder->setBuffer(_smoothingLengthBuffer, 0, 3);
-//    computeEncoder->setBuffer(_potentialGradientBuffer, 0, 4);
-//    computeEncoder->setBuffer(_tree, 0, 5);
-//    computeEncoder->setBuffer(_treeValues, 0, 6);
-//    computeEncoder->setBuffer(_cellArrayi, 0, 7);
-//    computeEncoder->setBuffer(_isAlive, 0, 8);
-//    
-//    encodeCommand(computeEncoder, _gravityPSO, nParticles);
-//
-//    //  End the compute pass.
-//    computeEncoder->endEncoding();
 }
 
 void Compute::encodeCommand(MTL::ComputeCommandEncoder* computeEncoder, MTL::ComputePipelineState* command, int size) {

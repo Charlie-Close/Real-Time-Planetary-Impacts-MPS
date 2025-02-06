@@ -11,7 +11,7 @@
 #include "utils/morton.h"
 
 constant float alpha = 1.5f;
-constant float C_cfl = .5f;
+constant float C_cfl = .7f;
 
 //static inline float nu_ij(float3 x_ij, float3 v_ij, float h, float c, float rho) {
 //    const float epsilon = 0.001;
@@ -85,6 +85,9 @@ kernel void acceleration(device float3* positions,
                 uint end = cellEnds[cellindex] + 1;
                 for (uint k = start; k < end; k++) {
                     const uint j = cellData[k].y;
+                    if (!isAlive[j]) {
+                        continue;
+                    }
                     float m_j = masses[j];
                     float f_j = gradientTerms[j];
                     float P_j = pressures[j];

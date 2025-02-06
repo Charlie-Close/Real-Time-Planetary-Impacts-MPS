@@ -18,6 +18,9 @@ kernel void step(device float3* positions,
                  uint index [[thread_position_in_grid]])
 {
     const float dt = .0001f * (*_dt);
+//    const float dt = .000004f * (*_dt);
+//    const float dt = 1.f;
+
     float3 velocity = velocities[index];
     
     if (!isAlive[index]) {
@@ -30,7 +33,7 @@ kernel void step(device float3* positions,
     velocities[index] += dt * acceleration;
     internalEnergies[index] += dt * dInternalEnergy[index];
     
-    float3 position = positions[index];
+//    float3 position = positions[index];
 //    if (position.x > 500 or position.y > 500 or position.z > 500 or position.x < 100 or position.y < 100 or position.z < 100 or length(acceleration) > dt * 0.001) {
 ////    if (position.x > 380 or position.y > 380 or position.z > 380 or position.x < 240 or position.y < 240 or position.z < 240) {
 //        isAlive[index] = false;
