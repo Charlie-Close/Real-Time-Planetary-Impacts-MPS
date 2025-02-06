@@ -65,8 +65,8 @@ void Renderer::draw(MTK::View* pView)
     compute->updateOctreeBuffer(_pDevice);
     for (int i = 0; i < 2; i++) {
         compute->sort(pCmd);
-        compute->gravitationalPass(pCmd);
         compute->densityPass(pCmd);
+        compute->gravitationalPass(pCmd);
         compute->accelerationPass(pCmd);
         compute->stepPass(pCmd);
         _frame++;

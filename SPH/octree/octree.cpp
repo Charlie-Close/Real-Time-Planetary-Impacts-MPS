@@ -154,9 +154,7 @@ void buildOctree(
     // 2. Create a list of all particle indices
     std::vector<int> allIndices;
     for (int i = 0; i < positionCount; i++) {
-        if (isAlive[i]) {
-            allIndices.push_back(i);
-        }
+        allIndices.push_back(i);
     }
 
     // 3. Recursively build the octree from the root

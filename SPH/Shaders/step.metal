@@ -11,31 +11,43 @@ using namespace metal;
 kernel void step(device float3* positions,
                  device float3* velocities,
                  device float3* accelerations,
+                 device float* densities,
                  device float* internalEnergies,
                  device float* dInternalEnergy,
-                 device bool* isAlive,
+                 device float* dhdts,
+                 device float* h,
+                 device bool* active,
+                 device int* nextActiveTime,
+                 device int* globalTime,
                  device int* _dt,
                  uint index [[thread_position_in_grid]])
 {
-    const float dt = .0001f * (*_dt);
+    const float dt = 0.0625f * (*_dt);
 //    const float dt = .000004f * (*_dt);
 //    const float dt = 1.f;
 
-    float3 velocity = velocities[index];
+    if (index == 0) {
+        *globalTime += (*_dt);
+    }
     
-    if (!isAlive[index]) {
-//        positions[index] += dt * velocity;
+    float3 velocity = velocities[index];
+    const float3 acceleration = accelerations[index];
+    
+    float h_i = h[index];
+    float h1 = 1 / h_i;
+    float dhdt = dhdts[index];
+    h[index] = h_i * exp(h1 * dhdt * dt);
+    
+    if (!active[index]) {
+        float density = densities[index];
+        densities[index] = density * exp(-3 * h1 * dhdt * dt);
+        positions[index] += dt * velocity;
+        velocities[index] += dt * acceleration;
+        internalEnergies[index] += dt * dInternalEnergy[index];
         return;
     }
     
-    const float3 acceleration = accelerations[index];
     positions[index] += dt * velocity + 0.5 * acceleration * dt * dt;
     velocities[index] += dt * acceleration;
     internalEnergies[index] += dt * dInternalEnergy[index];
-    
-//    float3 position = positions[index];
-//    if (position.x > 500 or position.y > 500 or position.z > 500 or position.x < 100 or position.y < 100 or position.z < 100 or length(acceleration) > dt * 0.001) {
-////    if (position.x > 380 or position.y > 380 or position.z > 380 or position.x < 240 or position.y < 240 or position.z < 240) {
-//        isAlive[index] = false;
-//    }
 }

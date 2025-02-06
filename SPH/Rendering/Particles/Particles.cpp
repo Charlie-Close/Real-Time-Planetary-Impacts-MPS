@@ -39,7 +39,7 @@ void Particles::buildSphereVertexBuffer(MTL::Device* device) {
     std::vector<simd_float3> normals;
     std::vector<uint16_t> indices;
     
-    std::tie(vertices, normals, indices) = generateSphere(.08, 1);
+    std::tie(vertices, normals, indices) = generateSphere(.08, 0);
     
     
     

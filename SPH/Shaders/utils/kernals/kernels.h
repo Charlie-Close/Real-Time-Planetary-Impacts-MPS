@@ -32,16 +32,31 @@ static inline float W(float3 x_ij, float h) {
     return fac * (1 - 1.5 * q * q * (1 - 0.5 * q));
 }
 
-static inline float3 gradW(float3 x_ij, float h) {
-    float h1 = 1.f / h;
-    float r = fast::length(x_ij);
+static inline float W(float r, float h1) {
+    float q = r * h1;
+    
+    if (q > 2.0) {
+        return 0;
+    }
+    
+    float fac = pi1 * h1 * h1 * h1;
+    
+    if (q > 1.0) {
+        float tmp = 2.f - q;
+        return fac * 0.25 * tmp * tmp * tmp;
+    }
+    
+    return fac * (1 - 1.5 * q * q * (1 - 0.5 * q));
+}
+
+static inline float3 gradW(float3 x_ij, float r, float r1, float h1) {
     float q = r * h1;
     
     if (q > 2.f or q < 1e-8) {
         return { 0, 0, 0 };
     }
     
-    float3 r_hat = x_ij / r;
+    float3 r_hat = x_ij * r1;
     
     float fac = pi1 * h1 * h1 * h1 * h1;
     
@@ -53,9 +68,7 @@ static inline float3 gradW(float3 x_ij, float h) {
     return 3 * fac * (0.75 * q - 1) * q  * r_hat;
 }
 
-static inline float dW_dh(float3 x_ij, float h) {
-    float h1 = 1.f / h;
-    float r = fast::length(x_ij);
+static inline float dW_dh(float r, float h1) {
     float q = r * h1;
     
     if (q > 2.0) {

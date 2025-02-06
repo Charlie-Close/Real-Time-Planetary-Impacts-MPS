@@ -75,6 +75,7 @@ void MyAppDelegate::applicationDidFinishLaunching( NS::Notification* pNotificati
         NS::WindowStyleMaskClosable|NS::WindowStyleMaskTitled,
         NS::BackingStoreBuffered,
         false );
+    
 
     _pDevice = MTL::CreateSystemDefaultDevice();
 

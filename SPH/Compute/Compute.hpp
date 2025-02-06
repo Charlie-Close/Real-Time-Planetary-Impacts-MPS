@@ -133,6 +133,9 @@ private:
     MTL::Buffer* _true;
     MTL::Buffer* _dt;
     MTL::Buffer* _balsara;
+    MTL::Buffer* _nextActiveTime;
+    MTL::Buffer* _globalTime;
+    MTL::Buffer* _dhdt;
 
     
     MTL::Texture* _forsterite;
