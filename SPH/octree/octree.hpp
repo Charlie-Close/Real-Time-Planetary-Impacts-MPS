@@ -12,7 +12,6 @@
 #include <simd/simd.h>
 
 void buildOctree(const simd_float3* positions,
-                 bool* isAlive,
                  int positionCount,
                  std::vector<int>& octreeData,
                  std::vector<std::vector<int>>& treeLevels,

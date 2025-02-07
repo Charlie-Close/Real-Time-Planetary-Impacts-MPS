@@ -7,6 +7,7 @@
 
 #include <metal_stdlib>
 #include "utils/morton.h"
+#include "../Parameters.h"
 using namespace metal;
 
 kernel void hash(device float3* positions,
@@ -45,21 +46,20 @@ kernel void hist(device uint2* cellParticles,
                  const device int* nParticles,
                  uint index [[thread_position_in_grid]])
 {
-    int blockSize = 256;
-    uint shift = (*ittr) * 8;
-    uint localHist[256];
-    for (int i = 0; i < 256; i++) {
+    uint shift = (*ittr) * SORTING_MASK_LENGTH;
+    uint localHist[SORTING_BUCKET_NUMBER];
+    for (int i = 0; i < SORTING_BUCKET_NUMBER; i++) {
         localHist[i] = 0;
     }
     
-    for (int i = blockSize * index; i < min(blockSize * ((int)index + 1), (*nParticles)); i++) {
-        uint bucketIndex = (cellParticles[i].x >> shift) & 0xFF;
+    for (int i = SORTING_BLOCK_SIZE * index; i < min(SORTING_BLOCK_SIZE * ((int)index + 1), (*nParticles)); i++) {
+        uint bucketIndex = (cellParticles[i].x >> shift) & SORTING_BIT_MASK;
         particleOffsets[i] = localHist[bucketIndex];
         localHist[bucketIndex]++;
     }
     
-    for (int i = 0; i < 256; i++) {
-        bucketHist[index * 256 + i] = localHist[i];
+    for (int i = 0; i < SORTING_BUCKET_NUMBER; i++) {
+        bucketHist[index * SORTING_BUCKET_NUMBER + i] = localHist[i];
     }
 }
 
@@ -69,7 +69,7 @@ kernel void sum(device uint* bucketHist,
                  uint index [[thread_position_in_grid]])
 {
     uint count = 0;
-    for (int i = 0; i < 256; i++) {
+    for (int i = 0; i < SORTING_BUCKET_NUMBER; i++) {
         count += bucketOffset[i];
         bucketOffset[i] = count;
     }
@@ -85,11 +85,11 @@ kernel void scan(device uint2* cellParticles,
 {
     uint count = 0;
     for (int i = 0; i < (*nBlocks); i++) {
-        count += bucketHist[i * 256 + index];
-        bucketHist[i * 256 + index] = count;
+        count += bucketHist[i * SORTING_BUCKET_NUMBER + index];
+        bucketHist[i * SORTING_BUCKET_NUMBER + index] = count;
     }
 
-    if (index < 255) {
+    if (index < SORTING_BIT_MASK) {
         bucketOffset[index + 1] = count;
     } else {
         bucketOffset[0] = 0;
@@ -104,13 +104,13 @@ kernel void sort(device uint2* cellParticles,
                  device uint* ittr,
                  uint index [[thread_position_in_grid]])
 {
-    uint shift = (*ittr) * 8;
-    uint bucketIndex = (cellParticles[index].x >> shift) & 0xFF;
-    int block = index / 256;
+    uint shift = (*ittr) * SORTING_MASK_LENGTH;
+    uint bucketIndex = (cellParticles[index].x >> shift) & SORTING_BIT_MASK;
+    int block = index / SORTING_BLOCK_SIZE;
     uint bOff = bucketOffset[bucketIndex];
-    uint blOffset = block == 0 ? 0 : bucketHist[(block - 1) * 256 + bucketIndex];
-    uint pOff = particleOffsets[index];
-    newCellParticles[bOff + pOff + blOffset] = cellParticles[index];
+    uint blockOffset = block == 0 ? 0 : bucketHist[(block - 1) * SORTING_BUCKET_NUMBER + bucketIndex];
+    uint subBlockOffset = particleOffsets[index];
+    newCellParticles[bOff + subBlockOffset + blockOffset] = cellParticles[index];
 }
 
 kernel void initialise(device uint* cellStarts,

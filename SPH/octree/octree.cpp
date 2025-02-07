@@ -9,26 +9,8 @@
 #include <limits>
 #include <algorithm>
 #include <iostream>
+#include "Parameters.h"
 
-// A simple bounding box struct
-struct BoundingBox {
-    simd_float3 min;
-    simd_float3 max;
-};
-
-/**
- * Recursively builds the octree for a subset of particles.
- *
- * @param positions       Pointer to all particle positions.
- * @param subsetIndices   Which particles (indices) belong in this subtree.
- * @param level           Current depth in the tree.
- * @param maxLeafSize     Max #particles allowed in a leaf before splitting.
- * @param octreeData      Flat integer array describing the octree structure.
- * @param treeLevels      2D array: treeLevels[d] lists node indices at depth d.
- * @param nodeValues      Float array for branch node data (7 floats per branch).
- *
- * @return The starting index in octreeData for this node (branch or leaf).
- */
 int buildOctreeRecursive(
     const simd_float3* positions,
     const std::vector<int>& subsetIndices,
@@ -39,7 +21,7 @@ int buildOctreeRecursive(
     int &nodeValues
 ) {
     // If #particles <= maxLeafSize, create a LEAF node
-    if ((int)subsetIndices.size() <= maxLeafSize or level == 5) {
+    if ((int)subsetIndices.size() <= maxLeafSize or level == MAX_TREE_DEPTH) {
         int nodeStart = (int)octreeData.size();
         // Add this node index to treeLevels
         if (level >= (int)treeLevels.size()) {
@@ -123,20 +105,8 @@ int buildOctreeRecursive(
     return nodeStart;
 }
 
-/**
- * Top-level function to build the octree.
- *
- * @param positions      Pointer to an array of simd_float3 positions.
- * @param positionCount  Number of positions in that array.
- * @param octreeData     (Output) Flat array of integers describing the octree structure.
- * @param treeLevels     (Output) treeLevels[d] = list of node indices at depth d.
- * @param nodeValues     (Output) For each branch node, we store 7 floats:
- *                        [ mass, posX, posY, posZ, gradX, gradY, gradZ ]
- * @param maxLeafSize    Max #particles in a leaf before splitting.
- */
 void buildOctree(
     const simd_float3* positions,
-    bool* isAlive,
     int positionCount,
     std::vector<int>& octreeData,
     std::vector<std::vector<int>>& treeLevels,

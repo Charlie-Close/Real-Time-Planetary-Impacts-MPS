@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <iostream>
 #include "Buffers.hpp"
+#include "../Parameters.h"
 
 ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resolution)
 {
@@ -116,10 +117,10 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
     
     table.rho = new float[resolution];
     table.u = new float[resolution];
-    table.minRho = 1;
-    table.minU = 500;
-    table.maxRho = 29800;
-    table.maxU = 8.80519e+10;
+    table.minRho = ANEOS_MIN_RHO * 1e+6;
+    table.minU = ANEOS_MIN_U * 1e+12;
+    table.maxRho = ANEOS_MAX_RHO * 1e+6;
+    table.maxU = ANEOS_MAX_U * 1e+12;
     for (int i = 0; i < resolution; i++) {
         table.rho[i] = table.minRho * pow((table.maxRho / table.minRho), (float)i / resolution);
         table.u[i] = table.minU * pow((table.maxU / table.minU), (float)i / resolution);

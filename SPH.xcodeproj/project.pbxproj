@@ -37,10 +37,8 @@
 		5B5C9C032D412D2C003302F2 /* libhdf5.310.5.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 5B5C9C012D412D2C003302F2 /* libhdf5.310.5.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		5B5C9C062D412F06003302F2 /* step.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B5C9C052D412F06003302F2 /* step.metal */; };
 		5B5C9C0B2D413137003302F2 /* density.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B5C9C0A2D413137003302F2 /* density.metal */; };
-		5B5C9C0E2D4133A1003302F2 /* eos.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B5C9C0D2D4133A1003302F2 /* eos.metal */; };
 		5B5C9C142D413649003302F2 /* accelerations.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B5C9C132D413649003302F2 /* accelerations.metal */; };
 		5B5C9C1B2D41611D003302F2 /* octree.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B5C9C192D41611D003302F2 /* octree.cpp */; };
-		5B5C9C232D416B78003302F2 /* cellsToScan.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B5C9C202D416B78003302F2 /* cellsToScan.metal */; };
 		5B6086972D42604D0037C449 /* tree.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B6086962D42604D0037C449 /* tree.metal */; };
 		5B6086A12D43D3D90037C449 /* ParticleMesh.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B6086A02D43D3D90037C449 /* ParticleMesh.cpp */; };
 /* End PBXBuildFile section */
@@ -117,20 +115,17 @@
 		5B5C9C012D412D2C003302F2 /* libhdf5.310.5.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libhdf5.310.5.0.dylib; path = hdf5/1.14.5/lib/libhdf5.310.5.0.dylib; sourceTree = "<group>"; };
 		5B5C9C052D412F06003302F2 /* step.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = step.metal; sourceTree = "<group>"; };
 		5B5C9C0A2D413137003302F2 /* density.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = density.metal; sourceTree = "<group>"; };
-		5B5C9C0C2D41339C003302F2 /* materials.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = materials.h; sourceTree = "<group>"; };
-		5B5C9C0D2D4133A1003302F2 /* eos.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = eos.metal; sourceTree = "<group>"; };
 		5B5C9C102D413469003302F2 /* kernels.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = kernels.h; sourceTree = "<group>"; };
-		5B5C9C122D413513003302F2 /* eos.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = eos.h; sourceTree = "<group>"; };
 		5B5C9C132D413649003302F2 /* accelerations.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = accelerations.metal; sourceTree = "<group>"; };
 		5B5C9C152D414145003302F2 /* demo_impact_n40.hdf5 */ = {isa = PBXFileReference; lastKnownFileType = file; path = demo_impact_n40.hdf5; sourceTree = "<group>"; };
 		5B5C9C182D41611D003302F2 /* octree.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = octree.hpp; sourceTree = "<group>"; };
 		5B5C9C192D41611D003302F2 /* octree.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = octree.cpp; sourceTree = "<group>"; };
-		5B5C9C202D416B78003302F2 /* cellsToScan.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = cellsToScan.metal; sourceTree = "<group>"; };
 		5B5C9C212D416B78003302F2 /* cellsToScan.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = cellsToScan.h; sourceTree = "<group>"; };
 		5B6086962D42604D0037C449 /* tree.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = tree.metal; sourceTree = "<group>"; };
 		5B60869E2D42E7510037C449 /* poles.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = poles.h; sourceTree = "<group>"; };
 		5B60869F2D43D3D90037C449 /* ParticleMesh.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = ParticleMesh.hpp; sourceTree = "<group>"; };
 		5B6086A02D43D3D90037C449 /* ParticleMesh.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ParticleMesh.cpp; sourceTree = "<group>"; };
+		5B702C6A2D553DDD00DEE8C7 /* Parameters.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Parameters.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -193,6 +188,7 @@
 				5B5C9C152D414145003302F2 /* demo_impact_n40.hdf5 */,
 				5B52166D2D47E1B6003F7B44 /* ANEOS_forsterite_S19.txt */,
 				5B52166E2D4A5170003F7B44 /* ANEOS_Fe85Si15_S20.txt */,
+				5B702C6A2D553DDD00DEE8C7 /* Parameters.h */,
 			);
 			path = SPH;
 			sourceTree = "<group>";
@@ -317,30 +313,11 @@
 			isa = PBXGroup;
 			children = (
 				5B60869C2D42E7490037C449 /* poles */,
-				5B5C9C222D416B78003302F2 /* cellsToScan */,
-				5B5C9C112D4134F9003302F2 /* eos */,
-				5B5C9C0F2D41345E003302F2 /* kernals */,
 				5B45357B2D4F7AB7009F35F7 /* morton.h */,
-			);
-			path = utils;
-			sourceTree = "<group>";
-		};
-		5B5C9C0F2D41345E003302F2 /* kernals */ = {
-			isa = PBXGroup;
-			children = (
+				5B5C9C212D416B78003302F2 /* cellsToScan.h */,
 				5B5C9C102D413469003302F2 /* kernels.h */,
 			);
-			path = kernals;
-			sourceTree = "<group>";
-		};
-		5B5C9C112D4134F9003302F2 /* eos */ = {
-			isa = PBXGroup;
-			children = (
-				5B5C9C0C2D41339C003302F2 /* materials.h */,
-				5B5C9C0D2D4133A1003302F2 /* eos.metal */,
-				5B5C9C122D413513003302F2 /* eos.h */,
-			);
-			path = eos;
+			path = utils;
 			sourceTree = "<group>";
 		};
 		5B5C9C1A2D41611D003302F2 /* octree */ = {
@@ -350,15 +327,6 @@
 				5B5C9C192D41611D003302F2 /* octree.cpp */,
 			);
 			path = octree;
-			sourceTree = "<group>";
-		};
-		5B5C9C222D416B78003302F2 /* cellsToScan */ = {
-			isa = PBXGroup;
-			children = (
-				5B5C9C202D416B78003302F2 /* cellsToScan.metal */,
-				5B5C9C212D416B78003302F2 /* cellsToScan.h */,
-			);
-			path = cellsToScan;
 			sourceTree = "<group>";
 		};
 		5B60869C2D42E7490037C449 /* poles */ = {
@@ -440,7 +408,6 @@
 			files = (
 				5B5C9C1B2D41611D003302F2 /* octree.cpp in Sources */,
 				5B5C9C0B2D413137003302F2 /* density.metal in Sources */,
-				5B5C9C0E2D4133A1003302F2 /* eos.metal in Sources */,
 				5B4905402D53CD910038674B /* accept.metal in Sources */,
 				5B5C9BE92D412373003302F2 /* Particles.cpp in Sources */,
 				5B4905482D53CFCD0038674B /* P2M.metal in Sources */,
@@ -467,7 +434,6 @@
 				5B4905422D53CEEB0038674B /* derivatives.metal in Sources */,
 				5B4905442D53CF5B0038674B /* M2M.metal in Sources */,
 				5B49054C2D53D27A0038674B /* L2L.metal in Sources */,
-				5B5C9C232D416B78003302F2 /* cellsToScan.metal in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

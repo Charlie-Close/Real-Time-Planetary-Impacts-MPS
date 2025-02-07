@@ -1,17 +1,26 @@
 //
-//  cellsToScan.metal
+//  cellsToScan.h
 //  SPH
 //
 //  Created by Charlie Close on 15/11/2024.
 //
 
-#include "cellsToScan.h"
+#ifndef cellsToScan_h
+#define cellsToScan_h
 
-CellToScanRange setCellsToScanDynamic(
-    float3 position,            // Particle position
-    float cellSize,            // Bounding box
+#include <metal_stdlib>
+using namespace metal;
+
+struct CellToScanRange {
+    int3 min;
+    int3 max;
+};
+
+static inline CellToScanRange setCellsToScanDynamic(
+    float3 position,
+    float cellSize,
     int cellsPerDim,
-    float  h                    // Smoothing length
+    float  h
 ) {
     float radius = 2.f * h;
     float3 minRange = position - float3(radius, radius, radius);
@@ -54,3 +63,6 @@ CellToScanRange setCellsToScanDynamic(
 
     return range;
 }
+
+
+#endif /* cellsToScan_h */

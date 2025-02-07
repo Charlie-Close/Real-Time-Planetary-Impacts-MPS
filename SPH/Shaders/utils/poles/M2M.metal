@@ -71,3 +71,85 @@ Multipole transformMultipole(Multipole mp, float3 r) {
 #endif
     return newMp;
 }
+
+Multipole M2M(device int* treeStructure, device Multipole* multipoles, device uint* parentIndexes, uint index, int treePointer) {
+    // If we are looking at a branch (signaled by nParticles == 0), we go through all
+    // 8 child nodes twice. The first time to find our center of mass, and the second
+    // to sum our children's multipoles
+    
+    // Initialise our multipole with everything 0, and minGrav as MAXFLOAT
+    Multipole mp;
+    mp.minGrav = MAXFLOAT;
+    mp.pos = { 0, 0, 0 };
+    mp.active = false;
+    for (uint i = 0; i < N_EXPANSION_TERMS; i++) {
+        mp.expansion[i] = 0;
+    }
+    float mass = 0;
+    bool first = true;
+    
+    // Get the start and end of our child pointers (8 of them starting 2 ahead of treePointer)
+    int start = treePointer + 2;
+    int end = start + 8;
+    // First pass: we find COM, min and max coords and whether we are active
+    for (int i = start; i < end; i++) {
+        int childPointer = treeStructure[i];
+        // -1 signifies there is not a child here so we skip
+        if (childPointer == -1) {
+            continue;
+        }
+        int childDataPointer = treeStructure[childPointer + 1];
+        // We let the child know where to find us (used in down pass)
+        parentIndexes[childDataPointer] = index;
+        Multipole childMp = multipoles[childDataPointer];
+        // Add mass and position * mass so we can calculate our COM
+        mp.minGrav = min(childMp.minGrav, mp.minGrav);
+        mass += childMp.expansion[M];
+        mp.pos += childMp.pos * childMp.expansion[M];
+        // If at least one child is active, we are active (used to skip inactive
+        // nodes in down pass)
+        if (!mp.active && childMp.active) {
+            mp.active = true;
+        }
+        
+        // This is kinda jank, but you get the idea - find min and max coords
+        if (first) {
+            mp.max = childMp.max;
+            mp.min = childMp.min;
+            first = false;
+        } else {
+            mp.max.x = max(childMp.max.x, mp.max.x);
+            mp.max.y = max(childMp.max.y, mp.max.y);
+            mp.max.z = max(childMp.max.z, mp.max.z);
+            mp.min.x = min(childMp.min.x, mp.min.x);
+            mp.min.y = min(childMp.min.y, mp.min.y);
+            mp.min.z = min(childMp.min.z, mp.min.z);
+        }
+    }
+    
+    float3 dims = mp.max - mp.min;
+    mp.size = max3(dims.x, dims.y, dims.z);
+    mp.pos /= mass;
+    
+    // Second pass: get our multipole expansion
+    for (int i = start; i < end; i++) {
+        int childPointer = treeStructure[i];
+        // -1 signifies there is not a child here so we skip
+        if (childPointer == -1) {
+            continue;
+        }
+        int childDataPointer = treeStructure[childPointer + 1];
+        Multipole childMp = multipoles[childDataPointer];
+        // Now we know our COM, we can shift the child's multipole expansion
+        // to center at our COM, and then we can just sum the expansion terms
+        float3 r = mp.pos - childMp.pos;
+        Multipole transformed = transformMultipole(childMp, r);
+        for (uint j = 0; j < N_EXPANSION_TERMS; j++) {
+            mp.expansion[j] += transformed.expansion[j];
+        }
+    }
+    // This is for multipole acceptance criterion
+    addPowers(mp);
+    
+    return mp;
+}

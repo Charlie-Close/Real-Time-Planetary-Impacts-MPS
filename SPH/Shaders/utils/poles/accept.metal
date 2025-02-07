@@ -7,6 +7,7 @@
 
 #include "poles.h"
 #include <metal_stdlib>
+#include "../../../Parameters.h"
 using namespace metal;
 
 
@@ -41,9 +42,6 @@ bool gravity_M2L_accept(Multipole A, Multipole B) {
     /* Get the mimimal acceleration in A */
     const float min_a_grav = A.minGrav;
 
-    /* Get the relative tolerance */
-    const float eps = 0.005;
-
     /* Get the sum of the multipole sizes */
     const float rho_sum = rho_A + rho_B;
 
@@ -53,7 +51,7 @@ bool gravity_M2L_accept(Multipole A, Multipole B) {
 
     /* Condition 2: The contribution is accurate enough
      * (E_BA * (1 / r^(p)) * ((1 / r^2) * W) < eps * a_min) */
-    const int cond_2 = E_BA_term < eps * min_a_grav * r_to_p * f_MAC_inv;
+    const int cond_2 = E_BA_term < GRAVITY_ETA * min_a_grav * r_to_p * f_MAC_inv;
 
     return cond_1 && cond_2;
 }

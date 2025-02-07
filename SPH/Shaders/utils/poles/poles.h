@@ -11,9 +11,8 @@
 
 #include <metal_stdlib>
 using namespace metal;
+#include "../../../Parameters.h"
 
-#define P 2
-#define N_EXPANSION_TERMS ((P+1)*(P+2)*(P+3)/6)
 constant uint M = 0;
 constant uint X = 1;
 constant uint Y = 2;
@@ -50,6 +49,7 @@ typedef struct {
     float expansion[N_EXPANSION_TERMS];
     float power[P+1];
     float minGrav;
+    bool active;
 } Multipole;
 
 
@@ -66,9 +66,9 @@ int binomial(const int n, const int k);
 float integer_powf(const float x, const unsigned int n);
 void addPowers(thread Multipole &mp);
 
-Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float* grav, int treePointer);
+Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float* grav, device bool* active, int treePointer);
 float3 L2P(Local local, float3 pos);
-Multipole transformMultipole(Multipole mp, float3 r);
+Multipole M2M(device int* treeStructure, device Multipole* multipoles, device uint* parentIndexes, uint index, int treePointer);
 Local transformLocal(Local local, float3 r);
 Derivatives derivatives(float3 vec, float eps);
 Local M2L(float3 x, Multipole mp);

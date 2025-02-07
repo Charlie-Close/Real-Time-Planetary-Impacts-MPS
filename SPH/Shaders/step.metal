@@ -23,8 +23,6 @@ kernel void step(device float3* positions,
                  uint index [[thread_position_in_grid]])
 {
     const float dt = 0.0625f * (*_dt);
-//    const float dt = .000004f * (*_dt);
-//    const float dt = 1.f;
 
     if (index == 0) {
         *globalTime += (*_dt);

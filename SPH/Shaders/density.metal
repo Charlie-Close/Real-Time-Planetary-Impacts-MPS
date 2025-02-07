@@ -5,16 +5,10 @@
 //  Created by Charlie Close on 22/01/2025.
 //
 
-#include "utils/kernals/kernels.h"
-#include "utils/eos/eos.h"
-#include "utils/cellsToScan/cellsToScan.h"
+#include "utils/kernels.h"
+#include "utils/cellsToScan.h"
 #include "utils/poles/poles.h"
 #include "utils/morton.h"
-
-constant float minRho = 1e-6;
-constant float maxRho = 2.98e-2;
-constant float minU = 5e+2;
-constant float maxU = 8.80519e+10;
 
 kernel void density(device float3* positions,
                     device float3* velocities,
@@ -48,12 +42,12 @@ kernel void density(device float3* positions,
     if (nextActiveTime[ind] > (*globalTime)) {
         active[ind] = false;
 
-        float u = internalEnergies[ind] * pow(10.f, 12);
+        float u = internalEnergies[ind];
         float materialId = materialIds[ind];
         float density = densities[ind];
         
-        float uCoord = log(u / minU) / log(maxU / minU);
-        float rhoCoord = log(density / minRho) / log(maxRho / minRho);
+        float uCoord = log(u / ANEOS_MIN_U) / log(ANEOS_MAX_U / ANEOS_MIN_U);
+        float rhoCoord = log(density / ANEOS_MIN_RHO) / log(ANEOS_MAX_RHO / ANEOS_MIN_RHO);
         float2 uv = float2(uCoord, rhoCoord);
         uv = clamp(uv, float2(0.0), float2(1.0));
         sampler textureSampler(mag_filter::linear, min_filter::linear, mip_filter::none, address::clamp_to_edge);
@@ -74,7 +68,7 @@ kernel void density(device float3* positions,
     int cellsPerDimT = *cellsPerDim;
     float eps = 1;
     int count = 0;
-    while (eps > 0.001 and count < 50) {
+    while (eps > DENSITY_ETA and count < MAX_DENSITY_NR_ITTERATIONS) {
         CellToScanRange range = setCellsToScanDynamic(position, *cellSize, *cellsPerDim, h_i);
         density = 0;
         
@@ -104,7 +98,7 @@ kernel void density(device float3* positions,
             }
         }
                 
-        float newH = min(1.2348 * pow(mass_i / density, 1.f / 3), .5f);
+        float newH = min(1.2348 * pow(mass_i / density, 1.f / 3), MAX_SMOOTHING_LENGTH);
         eps = abs(newH - h_i) / h_i;
         h_i = newH;
         h1 = 1 / h_i;
@@ -162,11 +156,11 @@ kernel void density(device float3* positions,
     gradientTerms[ind] = - 1 / (1 + (h_i / (3 * density)) * density_h);
     phiGrad[ind] = - (h_i / (3 * density)) * phiGrad[ind];
     
-    float u = internalEnergies[ind] * pow(10.f, 12);
+    float u = internalEnergies[ind];
     float materialId = materialIds[ind];
     
-    float uCoord = log(u / minU) / log(maxU / minU);
-    float rhoCoord = log(density / minRho) / log(maxRho / minRho);
+    float uCoord = log(u / ANEOS_MIN_U) / log(ANEOS_MAX_U / ANEOS_MIN_U);
+    float rhoCoord = log(density / ANEOS_MIN_RHO) / log(ANEOS_MAX_RHO / ANEOS_MIN_RHO);
     float2 uv = float2(uCoord, rhoCoord);
     uv = clamp(uv, float2(0.0), float2(1.0));
     sampler textureSampler(mag_filter::linear, min_filter::linear, mip_filter::none, address::clamp_to_edge);

@@ -9,7 +9,7 @@
 #include <metal_stdlib>
 using namespace metal;
 
-Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float* grav, int treePointer) {
+Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float* grav, device bool* active, int treePointer) {
     Multipole mp;
     int nParticles = treeStructure[treePointer];
     int start = treePointer + 2;
@@ -21,11 +21,15 @@ Multipole P2M(device int* treeStructure, device float* masses, device float3* po
         mp.expansion[i] = 0;
     }
     mp.minGrav = MAXFLOAT;
+    mp.active = false;
     
     for (int i = start; i < end; i++) {
         int p = treeStructure[i];
         float p_mass = masses[p];
         float3 p_position = positions[p];
+        if (!mp.active and active[p]) {
+            mp.active = true;
+        }
         if (first) {
             mp.max = p_position;
             mp.min = p_position;

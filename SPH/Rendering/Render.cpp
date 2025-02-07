@@ -63,13 +63,12 @@ void Renderer::draw(MTK::View* pView)
     
 
     compute->updateOctreeBuffer(_pDevice);
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < STEPS_PER_FRAME; i++) {
         compute->sort(pCmd);
         compute->densityPass(pCmd);
         compute->gravitationalPass(pCmd);
         compute->accelerationPass(pCmd);
         compute->stepPass(pCmd);
-        _frame++;
     }
     
     // Update camera matrix

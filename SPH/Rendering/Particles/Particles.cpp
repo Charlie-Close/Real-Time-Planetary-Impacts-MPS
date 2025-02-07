@@ -8,6 +8,7 @@
 #include "Particles.hpp"
 #include "Buffers.hpp"
 #include "ParticleMesh.hpp"
+#include "../../Parameters.h"
 #include <iostream>
 
 // -------------------------------- //
@@ -39,7 +40,7 @@ void Particles::buildSphereVertexBuffer(MTL::Device* device) {
     std::vector<simd_float3> normals;
     std::vector<uint16_t> indices;
     
-    std::tie(vertices, normals, indices) = generateSphere(.08, 0);
+    std::tie(vertices, normals, indices) = generateSphere(PARTICLE_SIZE, PARTICLE_SUBDIVITIONS);
     
     
     

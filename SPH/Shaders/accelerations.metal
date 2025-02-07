@@ -5,16 +5,11 @@
 //  Created by Charlie Close on 22/01/2025.
 //
 
-#include "utils/kernals/kernels.h"
-#include "utils/cellsToScan/cellsToScan.h"
+#include "utils/kernels.h"
+#include "utils/cellsToScan.h"
 #include "utils/poles/poles.h"
 #include "utils/morton.h"
-
-constant float alpha = 1.5f;
-constant float C_cfl = .5f;
-constant float G = 6.67e-5;
-constant float dt0 = 32.f;
-constant int R_MAX = 10;
+#include "../Parameters.h"
 
 kernel void acceleration(device float3* positions,
                          device float3* velocities,
@@ -43,8 +38,6 @@ kernel void acceleration(device float3* positions,
 {
     int ind = cellData[index].y;
     if (!active[ind]) {
-        float integerDt = (nextActiveTime[ind] - (*globalTime));
-        atomic_fetch_min_explicit(&(*dt), integerDt, memory_order_relaxed);
         return;
     }
     float f_i = gradientTerms[ind];
@@ -67,7 +60,7 @@ kernel void acceleration(device float3* positions,
     
     int cellsPerDimT = *cellsPerDim;
     CellToScanRange range = setCellsToScanDynamic(x_i, *cellSize, *cellsPerDim, h_i);
-    float v_sigi = 0.0001;
+    float v_sigi = 1e-12;
     
     for (int x = range.min.x; x <= range.max.x; x++) {
         for (int y = range.min.y; y <= range.max.y; y++) {
@@ -116,7 +109,7 @@ kernel void acceleration(device float3* positions,
                     
                     float B_j = balsara[j];
                     float B_ij = 0.5 * (B_i + B_j);
-                    float nu_ij = 0.5 * alpha * B_ij * mu_ij * v_sigij / rho_ij;
+                    float nu_ij = 0.5 * VISCOSITY_ALPHA * B_ij * mu_ij * v_sigij / rho_ij;
                     
                     float3 gW_i = - gradW(x_ij, r, r1, hi1);
                     float3 gW_j = - gradW(x_ij, r, r1, hj1);
@@ -138,15 +131,15 @@ kernel void acceleration(device float3* positions,
     dInternalEnergy[ind] = du_dt;
     dhdts[ind] = dhdt;
 
-    float goaldt = 2.0f * C_cfl * h_i / v_sigi;
+    float goaldt = 2.0f * CFL * h_i / v_sigi;
     int r = 0;
-    float dtCandidate = dt0;
+    float dtCandidate = DT0;
     while (dtCandidate > goaldt && r < R_MAX) {
         dtCandidate *= 0.5f;
         r++;
     }
 
-    int integerDt = (int)ceil(16 * dtCandidate);
+    int integerDt = (int)ceil(DT_MIN * dtCandidate);
     nextActiveTime[ind] = (*globalTime) + integerDt;
     atomic_fetch_min_explicit(&(*dt), integerDt, memory_order_relaxed);
 }

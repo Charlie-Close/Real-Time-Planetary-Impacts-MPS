@@ -17,9 +17,7 @@
 #include <AppKit/AppKit.hpp>
 #include <MetalKit/MetalKit.hpp>
 #include "hdfHandler.hpp"
-
-#define P 2
-#define N_EXPANSION_TERMS ((P+1)*(P+2)*(P+3)/6)
+#include "Parameters.h"
 
 typedef struct {
     simd::float3 pos;
@@ -29,6 +27,7 @@ typedef struct {
     float expansion[N_EXPANSION_TERMS];
     float power[P+1];
     float minGrav;
+    bool active;
 } Multipole;
 
 
@@ -62,7 +61,7 @@ private:
     void buildBuffers(MTL::Device* device, MTL::CommandQueue* commandQueue);
     void loadInitialConditions(MTL::Device* device, MTL::CommandQueue* commandQueue, DataStruct data);
     void updateOctreeData(MTL::Device* device);
-    void encodeCommand(MTL::ComputeCommandEncoder* computeEncoder, MTL::ComputePipelineState* command, int size);
+    void encodeCommand(MTL::ComputeCommandEncoder* computeEncoder, MTL::ComputePipelineState* command, long size);
     
     std::vector<std::vector<int>> treeLevels;
     std::vector<std::vector<int>> treeLevelsTemp;
@@ -72,7 +71,6 @@ private:
     int nBlocks;
     long prevGravDataSize = 0;
     long prevTreeValuesSize = 0;
-    long prevParentIndicesSize = 0;
     
     int cellsPerDim;
     float cellSize;
@@ -110,7 +108,7 @@ private:
     MTL::Buffer* _bucketHist;
     MTL::Buffer* _bucketOffset;
     MTL::Buffer* _particleOffset;
-    MTL::Buffer* _ittr[4];
+    MTL::Buffer* _ittr[SORTING_ITTERATIONS];
     MTL::Buffer* _nParticles;
     MTL::Buffer* _nBlocks;
     MTL::Buffer* _cellStart;
@@ -125,12 +123,9 @@ private:
     MTL::Buffer* _leafPointers;
     MTL::Buffer* _localGravi;
     MTL::Buffer* _localGravj;
-    MTL::Buffer* _isAlive;
+    MTL::Buffer* _active;
     MTL::Buffer* _gravAbs;
     std::vector<MTL::Buffer*> _treeLevelBuffers;
-    MTL::Buffer* _debug;
-    MTL::Buffer* _false;
-    MTL::Buffer* _true;
     MTL::Buffer* _dt;
     MTL::Buffer* _balsara;
     MTL::Buffer* _nextActiveTime;
