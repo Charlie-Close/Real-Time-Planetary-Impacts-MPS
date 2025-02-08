@@ -13,6 +13,8 @@
 using namespace metal;
 #include "../../../Parameters.h"
 
+constant float G = 6.67e-5;
+
 constant uint M = 0;
 constant uint X = 1;
 constant uint Y = 2;
@@ -66,10 +68,10 @@ int binomial(const int n, const int k);
 float integer_powf(const float x, const unsigned int n);
 void addPowers(thread Multipole &mp);
 
-Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float* grav, device bool* active, int treePointer);
+Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float* grav, device bool* active, device int* nextActiveTime, device int* globalTime, int treePointer);
 float3 L2P(Local local, float3 pos);
-Multipole M2M(device int* treeStructure, device Multipole* multipoles, device uint* parentIndexes, uint index, int treePointer);
-Local transformLocal(Local local, float3 r);
+Multipole M2M(device int* treeStructure, device Multipole* multipoles, device bool* active, device uint* parentIndexes, uint index, int treePointer);
+void L2L(device int* treeStructure, device Multipole* multipoles, device Local* locals, thread Multipole& mp, thread Local& local, int treePointer);
 Derivatives derivatives(float3 vec, float eps);
 Local M2L(float3 x, Multipole mp);
 bool gravity_M2L_accept(Multipole A, Multipole B);

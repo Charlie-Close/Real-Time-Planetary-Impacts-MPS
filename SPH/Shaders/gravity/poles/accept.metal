@@ -12,16 +12,23 @@ using namespace metal;
 
 
 bool gravity_M2L_accept(Multipole A, Multipole B) {
-    /* Order of the expansion */
-    const int p = P;
 
     /* Sizes of the multipoles */
     const float rho_A = A.size;
     const float rho_B = B.size;
     const float r2 = length_squared(A.pos - B.pos);
+    /* Get the sum of the multipole sizes */
+    const float rho_sum = rho_A + rho_B;
+    
+    if (rho_sum * rho_sum > r2) {
+        return false;
+    }
 
     /* Max size of both multipoles */
     const float rho_max = max(rho_A, rho_B);
+    
+    /* Order of the expansion */
+    const int p = P;
 
     /* Compute the error estimator (without the 1/M_B term that cancels out) */
     float E_BA_term = 0.f;
@@ -42,17 +49,8 @@ bool gravity_M2L_accept(Multipole A, Multipole B) {
     /* Get the mimimal acceleration in A */
     const float min_a_grav = A.minGrav;
 
-    /* Get the sum of the multipole sizes */
-    const float rho_sum = rho_A + rho_B;
-
-    /* Test the different conditions */
-    /* Condition 1: We are in the converging part of the Taylor expansion */
-    const int cond_1 = rho_sum * rho_sum < r2;
-
     /* Condition 2: The contribution is accurate enough
      * (E_BA * (1 / r^(p)) * ((1 / r^2) * W) < eps * a_min) */
-    const int cond_2 = E_BA_term < GRAVITY_ETA * min_a_grav * r_to_p * f_MAC_inv;
-
-    return cond_1 && cond_2;
+    return E_BA_term < GRAVITY_ETA * min_a_grav * r_to_p * f_MAC_inv;
 }
 

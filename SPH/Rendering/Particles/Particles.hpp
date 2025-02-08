@@ -19,7 +19,7 @@
 
 class Particles {
 public:
-    Particles(MTL::Device* _device, MTL::Buffer* particlePositions, MTL::Buffer* extraBuffer, int nParticles);
+    Particles(MTL::Device* _device, MTL::Buffer* particlePositions, MTL::Buffer* extraBuffer, MTL::Buffer* densityBuffer, int nParticles);
     void draw(MTL::RenderCommandEncoder *pEnc, MTL::Buffer* cameraDataBuffer);
 
 
@@ -36,9 +36,7 @@ private:
     
     
     
-    
-    
-    
+
     
     
     
@@ -62,6 +60,7 @@ private:
     // Buffers
     MTL::Buffer* _positionBuffer;
     MTL::Buffer* _extraBuffer;
+    MTL::Buffer* _densityBuffer;
 };
 
 #endif /* Particles_hpp */

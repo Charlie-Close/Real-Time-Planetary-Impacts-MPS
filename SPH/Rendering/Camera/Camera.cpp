@@ -12,6 +12,13 @@
 Camera::Camera() {
     _perspective = math::makePerspective(45.f * M_PI / 180.f, 1.f, near_plane, far_plane);
     _view = math::makeLookAt(_position, _forward, _up);
+    float yawRad = yaw * M_PI / 180.f;
+    float pitchRad = pitch * M_PI / 180.f;
+    simd_float3 direction;
+    direction.x = cos(yawRad) * cos(pitchRad);
+    direction.y = sin(pitchRad);
+    direction.z = sin(yawRad) * cos(pitchRad);
+    _forward = simd::normalize(direction);
 }
 
 simd::float4x4 Camera::getMatrix() {
@@ -101,7 +108,7 @@ void Camera::handleMouseDrag(float x, float y) {
     // Sensitivity
     float sensitivity = 0.1f;
     yaw += offset.x * sensitivity;
-    pitch += offset.y * sensitivity * sensitivity;
+    pitch += offset.y * sensitivity;
 
     // Constrain pitch
     if (pitch > 89.0f)
@@ -112,8 +119,9 @@ void Camera::handleMouseDrag(float x, float y) {
     // Update front vector
     simd_float3 direction;
     float yawRad = yaw * M_PI / 180.f;
-    direction.x = cos(yawRad) * cos(pitch);
-    direction.y = sin(pitch);
-    direction.z = sin(yawRad) * cos(pitch);
+    float pitchRad = pitch * M_PI / 180.f;
+    direction.x = cos(yawRad) * cos(pitchRad);
+    direction.y = sin(pitchRad);
+    direction.z = sin(yawRad) * cos(pitchRad);
     _forward = simd::normalize(direction);
 }

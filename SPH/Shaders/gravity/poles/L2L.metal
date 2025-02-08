@@ -87,3 +87,18 @@ Local transformLocal(Local local, float3 r) {
     return newLocal;
 }
 
+void L2L(device int* treeStructure, device Multipole* multipoles, device Local* locals, thread Multipole& mp, thread Local& local, int treePointer) {
+    // Give our local expansion to our children
+    int start = treePointer + 2;
+    int end = start + 8;
+    for (int j = start; j < end; j++) {
+        int nodePointer = treeStructure[j];
+        int nodeDataPointer = treeStructure[nodePointer + 1];
+        Multipole nodeMp = multipoles[nodeDataPointer];
+        if (!nodeMp.active) {
+            continue;
+        }
+        float3 r = nodeMp.pos - local.pos;
+        locals[nodeDataPointer] = transformLocal(local, r);
+    }
+}

@@ -9,12 +9,11 @@
 #include <metal_stdlib>
 using namespace metal;
 
-Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float* grav, device bool* active, int treePointer) {
+Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float* grav, device bool* active, device int* nextActiveTime, device int* globalTime, int treePointer) {
     Multipole mp;
     int nParticles = treeStructure[treePointer];
     int start = treePointer + 2;
     int end = start + nParticles;
-    bool first = true;
     
     mp.pos = { 0, 0, 0 };
     for (uint i = 0; i < N_EXPANSION_TERMS; i++) {
@@ -22,30 +21,30 @@ Multipole P2M(device int* treeStructure, device float* masses, device float3* po
     }
     mp.minGrav = MAXFLOAT;
     mp.active = false;
+    mp.max = float3(-MAXFLOAT);
+    mp.min = float3(MAXFLOAT);
     
     for (int i = start; i < end; i++) {
         int p = treeStructure[i];
         float p_mass = masses[p];
         float3 p_position = positions[p];
-        if (!mp.active and active[p]) {
+        int isActive = (*globalTime) <= nextActiveTime[p];
+        if (!mp.active and isActive) {
             mp.active = true;
         }
-        if (first) {
-            mp.max = p_position;
-            mp.min = p_position;
-            first = false;
-        } else {
-            mp.max.x = max(p_position.x, mp.max.x);
-            mp.max.y = max(p_position.y, mp.max.y);
-            mp.max.z = max(p_position.z, mp.max.z);
-            mp.min.x = min(p_position.x, mp.min.x);
-            mp.min.y = min(p_position.y, mp.min.y);
-            mp.min.z = min(p_position.z, mp.min.z);
-        }
+        mp.max = max(mp.max, p_position);
+        mp.min = min(mp.min, p_position);
         
         mp.expansion[M] += p_mass;
         mp.pos += p_position * p_mass;
-        mp.minGrav = min(mp.minGrav, grav[p]);
+        if (isActive) {
+            mp.minGrav = min(mp.minGrav, grav[p]);
+        }
+    }
+    
+    for (int i = start; i < end; i++) {
+        int p = treeStructure[i];
+        active[p] = mp.active;
     }
     
     mp.pos /= mp.expansion[M];

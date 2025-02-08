@@ -17,7 +17,7 @@
 //                                  //
 // -------------------------------- //
 
-Particles::Particles(MTL::Device* device, MTL::Buffer* particlePositions, MTL::Buffer* extraBuffer, int nParticles) {
+Particles::Particles(MTL::Device* device, MTL::Buffer* particlePositions, MTL::Buffer* extraBuffer, MTL::Buffer* densityBuffer, int nParticles) {
     nPoints = nParticles;
 
     buildSphereVertexBuffer(device);
@@ -27,6 +27,7 @@ Particles::Particles(MTL::Device* device, MTL::Buffer* particlePositions, MTL::B
     MTL::CommandQueue* commandQueue = device->newCommandQueue();
     _positionBuffer = particlePositions;
     _extraBuffer = extraBuffer;
+    _densityBuffer = densityBuffer;
 }
 
 // -------------------------------- //
@@ -121,6 +122,7 @@ void Particles::draw(MTL::RenderCommandEncoder *pEnc, MTL::Buffer* cameraDataBuf
     pEnc->setVertexBuffer(_positionBuffer, 0, 2);    // Per-instance particle positions
     pEnc->setVertexBuffer(cameraDataBuffer, 0, 3);   // Camera data buffer
     pEnc->setVertexBuffer(_extraBuffer, 0, 4);       // Extra data buffer
+    pEnc->setVertexBuffer(_densityBuffer, 0, 5);       // density data buffer
 
     // Draw instanced spheres
     pEnc->drawIndexedPrimitives( MTL::PrimitiveType::PrimitiveTypeTriangle,

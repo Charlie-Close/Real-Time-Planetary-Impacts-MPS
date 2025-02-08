@@ -50,12 +50,12 @@ void Compute::loadInitialConditions(MTL::Device* device, MTL::CommandQueue* comm
     // Write all the data to the buffers
     writeDataToBuffer(positionBuffer, data.positions);
     writeDataToPrivateBuffer(device, commandQueue, _velocityBuffer, data.velocities);
-    writeDataToPrivateBuffer(device, commandQueue, _densityBuffer, data.densities);
+    writeDataToPrivateBuffer(device, commandQueue, densityBuffer, data.densities);
     writeDataToPrivateBuffer(device, commandQueue, _internalEnergyBuffer, data.internalEnergy);
     writeDataToPrivateBuffer(device, commandQueue, _massBuffer, data.masses);
     writeDataToPrivateBuffer(device, commandQueue, _pressureBuffer, data.pressures);
     writeDataToPrivateBuffer(device, commandQueue, _smoothingLengthBuffer, data.smoothingLengths);
-    writeDataToPrivateBuffer(device, commandQueue, _materialIdBuffer, data.materialIDs);
+    writeDataToPrivateBuffer(device, commandQueue, materialIdBuffer, data.materialIDs);
     writeDataToPrivateBuffer(device, commandQueue, _nParticles, nParticles);
     for (uint i = 0; i < SORTING_ITTERATIONS; i++) {
         writeDataToPrivateBuffer(device, commandQueue, _ittr[i], i);
@@ -91,7 +91,7 @@ void Compute::updateOctreeBuffer(MTL::Device* device) {
     
     long treeDataSize = nodeValues;
     if (treeDataSize > prevTreeValuesSize) {
-        treeDataSize *= 1.2f;
+        treeDataSize *= EXTRA_MEMORY_MULTIPLIER;
         _multipoleExpansions->release();
         _localExpansion->release();
         _parentIndexes->release();
@@ -117,7 +117,7 @@ void Compute::updateOctreeBuffer(MTL::Device* device) {
     
     long gravDataSize = maxSize * sizeof(int) * MAX_UNCHECKED_POINTERS;
     if (gravDataSize > prevGravDataSize) {
-        gravDataSize *= 1.2;
+        gravDataSize *= EXTRA_MEMORY_MULTIPLIER;
         _localGravi->release();
         _localGravj->release();
         _localGravi = device->newBuffer(gravDataSize, MTL::ResourceStorageModePrivate);
@@ -151,12 +151,12 @@ void Compute::buildBuffers(MTL::Device* device, MTL::CommandQueue *commandQueue)
     positionBuffer = device->newBuffer(nParticles * sizeof(simd_int3), MTL::ResourceStorageModeShared);
     _velocityBuffer = device->newBuffer(nParticles * sizeof(simd_int3), MTL::ResourceStorageModePrivate);
     _accelerationBuffer = device->newBuffer(nParticles * sizeof(simd_int3), MTL::ResourceStorageModePrivate);
-    _densityBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
+    densityBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _internalEnergyBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _massBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _pressureBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _smoothingLengthBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
-    _materialIdBuffer = device->newBuffer(nParticles * sizeof(int), MTL::ResourceStorageModePrivate);
+    materialIdBuffer = device->newBuffer(nParticles * sizeof(int), MTL::ResourceStorageModePrivate);
     _gradientTermsBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _speedOfSoundBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _dInternalEnergyBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
@@ -236,12 +236,12 @@ void Compute::densityPass(MTL::CommandBuffer* commandBuffer) {
     
     computeEncoder->setBuffer(positionBuffer, 0, 0);
     computeEncoder->setBuffer(_velocityBuffer, 0, 1);
-    computeEncoder->setBuffer(_densityBuffer, 0, 2);
+    computeEncoder->setBuffer(densityBuffer, 0, 2);
     computeEncoder->setBuffer(_internalEnergyBuffer, 0, 3);
     computeEncoder->setBuffer(_massBuffer, 0, 4);
     computeEncoder->setBuffer(_pressureBuffer, 0, 5);
     computeEncoder->setBuffer(_smoothingLengthBuffer, 0, 6);
-    computeEncoder->setBuffer(_materialIdBuffer, 0, 7);
+    computeEncoder->setBuffer(materialIdBuffer, 0, 7);
     computeEncoder->setBuffer(_gradientTermsBuffer, 0, 8);
     computeEncoder->setBuffer(_speedOfSoundBuffer, 0, 9);
     computeEncoder->setBuffer(_potentialGradientBuffer, 0, 10);
@@ -271,7 +271,7 @@ void Compute::accelerationPass(MTL::CommandBuffer* commandBuffer) {
     computeEncoder->setBuffer(positionBuffer, 0, 0);
     computeEncoder->setBuffer(_velocityBuffer, 0, 1);
     computeEncoder->setBuffer(_accelerationBuffer, 0, 2);
-    computeEncoder->setBuffer(_densityBuffer, 0, 3);
+    computeEncoder->setBuffer(densityBuffer, 0, 3);
     computeEncoder->setBuffer(_internalEnergyBuffer, 0, 4);
     computeEncoder->setBuffer(_massBuffer, 0, 5);
     computeEncoder->setBuffer(_pressureBuffer, 0, 6);
@@ -305,7 +305,7 @@ void Compute::stepPass(MTL::CommandBuffer* commandBuffer) {
     computeEncoder->setBuffer(positionBuffer, 0, 0);
     computeEncoder->setBuffer(_velocityBuffer, 0, 1);
     computeEncoder->setBuffer(_accelerationBuffer, 0, 2);
-    computeEncoder->setBuffer(_densityBuffer, 0, 3);
+    computeEncoder->setBuffer(densityBuffer, 0, 3);
     computeEncoder->setBuffer(_internalEnergyBuffer, 0, 4);
     computeEncoder->setBuffer(_dInternalEnergyBuffer, 0, 5);
     computeEncoder->setBuffer(_dhdt, 0, 6);
@@ -398,6 +398,9 @@ void Compute::gravitationalPass(MTL::CommandBuffer* commandBuffer) {
         computeEncoder->setBuffer(_parentIndexes, 0, 6);
         computeEncoder->setBuffer(_gravAbs, 0, 7);
         computeEncoder->setBuffer(_active, 0, 8);
+        computeEncoder->setBuffer(_nextActiveTime, 0, 9);
+        computeEncoder->setBuffer(_globalTime, 0, 10);
+
 
         encodeCommand(computeEncoder, _upTreePSO, treeLevels[i].size());
 

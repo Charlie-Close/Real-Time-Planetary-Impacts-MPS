@@ -23,7 +23,7 @@ Renderer::Renderer( MTL::Device* pDevice, Camera* camera )
     _pCommandQueue = _pDevice->newCommandQueue();
     
     compute = new Compute(_pDevice);
-    particles = new Particles(_pDevice, compute->positionBuffer, compute->_materialIdBuffer, compute->nParticles);
+    particles = new Particles(_pDevice, compute->positionBuffer, compute->materialIdBuffer, compute->densityBuffer, compute->nParticles);
 
     buildBuffers();
     
@@ -65,8 +65,8 @@ void Renderer::draw(MTK::View* pView)
     compute->updateOctreeBuffer(_pDevice);
     for (int i = 0; i < STEPS_PER_FRAME; i++) {
         compute->sort(pCmd);
-        compute->densityPass(pCmd);
         compute->gravitationalPass(pCmd);
+        compute->densityPass(pCmd);
         compute->accelerationPass(pCmd);
         compute->stepPass(pCmd);
     }

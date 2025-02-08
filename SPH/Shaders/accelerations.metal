@@ -7,7 +7,6 @@
 
 #include "utils/kernels.h"
 #include "utils/cellsToScan.h"
-#include "utils/poles/poles.h"
 #include "utils/morton.h"
 #include "../Parameters.h"
 

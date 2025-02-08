@@ -14,19 +14,19 @@ Multipole transformMultipole(Multipole mp, float3 r) {
     newMp.pos = mp.pos + r;
     newMp.expansion[M] = mp.expansion[M];
     
-    newMp.expansion[X] = mp.expansion[X] + r.x * mp.expansion[M];
-    newMp.expansion[Y] = mp.expansion[Y] + r.y * mp.expansion[M];
-    newMp.expansion[Z] = mp.expansion[Z] + r.z * mp.expansion[M];
+    newMp.expansion[X] = 0;//mp.expansion[X] + r.x * mp.expansion[M];
+    newMp.expansion[Y] = 0;//mp.expansion[Y] + r.y * mp.expansion[M];
+    newMp.expansion[Z] = 0;//mp.expansion[Z] + r.z * mp.expansion[M];
     
 #if P > 1
-    newMp.expansion[XX] = mp.expansion[XX] + r.x * mp.expansion[X] + 0.5 * r.x * r.x * mp.expansion[M];
-    newMp.expansion[XY] = mp.expansion[XY] + r.y * mp.expansion[X] + r.x * mp.expansion[Y] + r.x * r.y * mp.expansion[M];
-    newMp.expansion[XZ] = mp.expansion[XZ] + r.z * mp.expansion[X] + r.x * mp.expansion[Z] + r.x * r.z * mp.expansion[M];
+    newMp.expansion[XX] = mp.expansion[XX] + /*r.x * mp.expansion[X] +*/ 0.5 * r.x * r.x * mp.expansion[M];
+    newMp.expansion[XY] = mp.expansion[XY] + /*r.y * mp.expansion[X] + r.x * mp.expansion[Y] +*/ r.x * r.y * mp.expansion[M];
+    newMp.expansion[XZ] = mp.expansion[XZ] + /*r.z * mp.expansion[X] + r.x * mp.expansion[Z] +*/ r.x * r.z * mp.expansion[M];
     
-    newMp.expansion[YY] = mp.expansion[YY] + r.y * mp.expansion[Y] + 0.5 * r.y * r.y * mp.expansion[M];
-    newMp.expansion[YZ] = mp.expansion[YZ] + r.z * mp.expansion[Y] + r.y * mp.expansion[Z] + r.y * r.z * mp.expansion[M];
+    newMp.expansion[YY] = mp.expansion[YY] + /*r.y * mp.expansion[Y] +*/ 0.5 * r.y * r.y * mp.expansion[M];
+    newMp.expansion[YZ] = mp.expansion[YZ] + /*r.z * mp.expansion[Y] + r.y * mp.expansion[Z] +*/ r.y * r.z * mp.expansion[M];
     
-    newMp.expansion[ZZ] = mp.expansion[ZZ] + r.z * mp.expansion[Z] + 0.5 * r.z * r.z * mp.expansion[Z];
+    newMp.expansion[ZZ] = mp.expansion[ZZ] + /*r.z * mp.expansion[Z] +*/ 0.5 * r.z * r.z * mp.expansion[Z];
 #endif
 #if P > 2
     /* Shift 3rd order terms (1st order mpole (all 0) commented out) */
@@ -72,7 +72,7 @@ Multipole transformMultipole(Multipole mp, float3 r) {
     return newMp;
 }
 
-Multipole M2M(device int* treeStructure, device Multipole* multipoles, device uint* parentIndexes, uint index, int treePointer) {
+Multipole M2M(device int* treeStructure, device Multipole* multipoles, device bool* active, device uint* parentIndexes, uint index, int treePointer) {
     // If we are looking at a branch (signaled by nParticles == 0), we go through all
     // 8 child nodes twice. The first time to find our center of mass, and the second
     // to sum our children's multipoles
@@ -86,11 +86,13 @@ Multipole M2M(device int* treeStructure, device Multipole* multipoles, device ui
         mp.expansion[i] = 0;
     }
     float mass = 0;
-    bool first = true;
+    mp.max = float3(-MAXFLOAT);
+    mp.min = float3(MAXFLOAT);
     
     // Get the start and end of our child pointers (8 of them starting 2 ahead of treePointer)
     int start = treePointer + 2;
     int end = start + 8;
+    bool allLeaves = true;
     // First pass: we find COM, min and max coords and whether we are active
     for (int i = start; i < end; i++) {
         int childPointer = treeStructure[i];
@@ -111,27 +113,19 @@ Multipole M2M(device int* treeStructure, device Multipole* multipoles, device ui
         if (!mp.active && childMp.active) {
             mp.active = true;
         }
-        
-        // This is kinda jank, but you get the idea - find min and max coords
-        if (first) {
-            mp.max = childMp.max;
-            mp.min = childMp.min;
-            first = false;
-        } else {
-            mp.max.x = max(childMp.max.x, mp.max.x);
-            mp.max.y = max(childMp.max.y, mp.max.y);
-            mp.max.z = max(childMp.max.z, mp.max.z);
-            mp.min.x = min(childMp.min.x, mp.min.x);
-            mp.min.y = min(childMp.min.y, mp.min.y);
-            mp.min.z = min(childMp.min.z, mp.min.z);
+        if (allLeaves and treeStructure[childPointer] == 0) {
+            allLeaves = false;
         }
+        
+        mp.max = max(mp.max, childMp.max);
+        mp.min = min(mp.min, childMp.min);
     }
     
     float3 dims = mp.max - mp.min;
     mp.size = max3(dims.x, dims.y, dims.z);
     mp.pos /= mass;
     
-    // Second pass: get our multipole expansion
+    // Second pass: get our multipole expansion. If all are children are leaves, we sync them
     for (int i = start; i < end; i++) {
         int childPointer = treeStructure[i];
         // -1 signifies there is not a child here so we skip
@@ -146,6 +140,17 @@ Multipole M2M(device int* treeStructure, device Multipole* multipoles, device ui
         Multipole transformed = transformMultipole(childMp, r);
         for (uint j = 0; j < N_EXPANSION_TERMS; j++) {
             mp.expansion[j] += transformed.expansion[j];
+        }
+        
+        if (allLeaves and mp.active and not childMp.active) {
+            // Activate child to sync it with neighbouring leaves. Improves time stepping
+            multipoles[childDataPointer].active = true;
+            int nParticles = treeStructure[childPointer];
+            int childStart = childPointer + 2;
+            int childEnd = start + nParticles;
+            for (int j = childStart; j < childEnd; j++) {
+                active[treeStructure[j]] = true;
+            }
         }
     }
     // This is for multipole acceptance criterion

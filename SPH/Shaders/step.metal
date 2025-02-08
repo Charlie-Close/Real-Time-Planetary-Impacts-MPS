@@ -6,6 +6,7 @@
 //
 
 #include <metal_stdlib>
+#include "../Parameters.h"
 using namespace metal;
 
 kernel void step(device float3* positions,
@@ -22,7 +23,7 @@ kernel void step(device float3* positions,
                  device int* _dt,
                  uint index [[thread_position_in_grid]])
 {
-    const float dt = 0.0625f * (*_dt);
+    const float dt = DT_MIN1 * (*_dt);
 
     if (index == 0) {
         *globalTime += (*_dt);

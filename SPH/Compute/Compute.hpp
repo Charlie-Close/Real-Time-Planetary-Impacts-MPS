@@ -52,7 +52,8 @@ public:
 
     // Public buffers (as used by other shaders)
     MTL::Buffer* positionBuffer;
-    MTL::Buffer* _materialIdBuffer;
+    MTL::Buffer* materialIdBuffer;
+    MTL::Buffer* densityBuffer;
     
     int nParticles;
 
@@ -94,7 +95,6 @@ private:
     
     MTL::Buffer* _velocityBuffer;
     MTL::Buffer* _accelerationBuffer;
-    MTL::Buffer* _densityBuffer;
     MTL::Buffer* _internalEnergyBuffer;
     MTL::Buffer* _massBuffer;
     MTL::Buffer* _pressureBuffer;

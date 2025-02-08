@@ -7,8 +7,8 @@
 
 #include "utils/kernels.h"
 #include "utils/cellsToScan.h"
-#include "utils/poles/poles.h"
 #include "utils/morton.h"
+#include "../Parameters.h"
 
 kernel void density(device float3* positions,
                     device float3* velocities,
@@ -36,12 +36,10 @@ kernel void density(device float3* positions,
                     uint index [[thread_position_in_grid]])
 {
     if (index == 0) {
-        *dt = 16 * 64;
+        *dt = DT0 * DT_MIN;
     }
     int ind = cellData[index].y;
-    if (nextActiveTime[ind] > (*globalTime)) {
-        active[ind] = false;
-
+    if (!active[ind]) {
         float u = internalEnergies[ind];
         float materialId = materialIds[ind];
         float density = densities[ind];
@@ -57,7 +55,6 @@ kernel void density(device float3* positions,
         speedsOfSound[ind] = pc.y;
         return;
     }
-    active[ind] = true;
     
     float3 position = positions[ind];
     float h_i = h[ind];
@@ -68,6 +65,7 @@ kernel void density(device float3* positions,
     int cellsPerDimT = *cellsPerDim;
     float eps = 1;
     int count = 0;
+    
     while (eps > DENSITY_ETA and count < MAX_DENSITY_NR_ITTERATIONS) {
         CellToScanRange range = setCellsToScanDynamic(position, *cellSize, *cellsPerDim, h_i);
         density = 0;

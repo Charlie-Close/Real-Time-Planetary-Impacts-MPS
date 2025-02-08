@@ -1,14 +1,13 @@
 //
-//  tree.metal
+//  gravity.metal
 //  SPH
 //
 //  Created by Charlie Close on 23/01/2025.
 //
 
-#include "utils/kernels.h"
-#include "utils/poles/poles.h"
-
-constant float G = 6.67e-5;
+#include "../utils/kernels.h"
+#include "./poles/poles.h"
+#include "helpers.h"
 
 // Gravity is done in two stages, an up pass and a down pass on an octree. The octree is how we have
 // grouped our particles. The root contains all particles. This then subdivides the particles into
@@ -43,6 +42,8 @@ kernel void upPass(device float3* positions,
                    device uint* parentIndexes,
                    device float* gravNorm,
                    device bool* active,
+                   device int* nextActiveTime,
+                   device int* globalTime,
                    uint index [[thread_position_in_grid]])
 {
     int treePointer = pointers[index];
@@ -52,11 +53,11 @@ kernel void upPass(device float3* positions,
     if (nParticles == 0) {
         // We are looking at a branch node, so we sum the child multipoles (known in literature as
         // M2M - Multipole to Multipole)
-        multipoles[dataPointer] = M2M(treeStructure, multipoles, parentIndexes, index, treePointer);
+        multipoles[dataPointer] = M2M(treeStructure, multipoles, active, parentIndexes, index, treePointer);
     } else {
         // We are looking at a leaf node, so we sum the child particles (known in literature as P2M
         // - Particle to Multipole)
-        multipoles[dataPointer] = P2M(treeStructure, masses, positions, gravNorm, active, treePointer);
+        multipoles[dataPointer] = P2M(treeStructure, masses, positions, gravNorm, active, nextActiveTime, globalTime, treePointer);
     }
 }
 
@@ -75,9 +76,17 @@ kernel void downPass(device float3* positions,
                      uint index [[thread_position_in_grid]])
 {
     int treePointer = pointers[index];
+    
+    // We are looking at the root. We won't even try to do a scan all the way up here.
+    // We just zero out our children't local expansions.
+    if (treePointer == 0) {
+        zeroFirstBranches(treeStructure, multipoles, locals, unscannedIndexesOut);
+        return;
+    }
+    
+    
     int dataPointer = treeStructure[treePointer + 1];
     Multipole mp = multipoles[dataPointer];
-    
     if (!mp.active) {
         // If we are inactive, no point calculating our local field.
         return;
@@ -96,32 +105,6 @@ kernel void downPass(device float3* positions,
         outputPointer++;
     }
     
-    
-    if (treePointer == 0) {
-        // We are looking at the root. We won't even try to do a scan all the way up here.
-        // We just zero out our children't local expansions.
-        Local local;
-        for (uint i = 0; i < N_EXPANSION_TERMS; i++) {
-            local.expansion[i] = 0;
-        }
-        for (int i = 2; i < 10; i++) {
-            int nodePointer = treeStructure[i];
-            if (nodePointer == -1) {
-                continue;
-            }
-            int nodeDataPointer = treeStructure[nodePointer + 1];
-            float3 nodePos = multipoles[nodeDataPointer].pos;
-            locals[nodeDataPointer].pos = nodePos;
-            for (uint i = 0; i < N_EXPANSION_TERMS; i++) {
-                locals[nodeDataPointer].expansion[i] = 0;
-            }
-        }
-        // -1 let's our children know to stop scanning
-        unscannedIndexesOut[outputPointer] = -1;
-        return;
-    }
-    
-    
     // Where our parent will have stored it's unchecked nodes
     uint parentIndex = parentIndexes[dataPointer];
     uint startScan = parentIndex * MAX_UNCHECKED_POINTERS;
@@ -135,39 +118,12 @@ kernel void downPass(device float3* positions,
         if (toScan == -1) {
             break;
         }
-        
-        // If we are looking at a leaf, treat as multipole. Otherwise, check if branch satisfies
-        // multipole criterion.
-        int nodeDataPointer = treeStructure[toScan + 1];
-        Multipole nodeMp = multipoles[nodeDataPointer];
-        if (treeStructure[toScan] != 0 or gravity_M2L_accept(mp, nodeMp)) {
-            Local nodeLocal = M2L(local.pos, nodeMp);
-            for (uint j = 0; j < N_EXPANSION_TERMS; j++) {
-                local.expansion[j] += nodeLocal.expansion[j];
-            }
-            continue;
-        }
-            
-        // We couldn't treat the entire node as a multipole, so we will check it's children.
-        int start = toScan + 2;
-        int end = start + 8;
-        for (int j = start; j < end; j++) {
-            int childPointer = treeStructure[j];
-            if (childPointer == treePointer or childPointer == -1) {
-                // Ignore ourselves and empty nodes
-                continue;
-            }
-            int childDataPointer = treeStructure[childPointer + 1];
-            Multipole childMp = multipoles[childDataPointer];
-            if (gravity_M2L_accept(mp, childMp) or nParticles != 0 or outputPointer == maxOutputPointer) {
-                Local nodeLocal = M2L(local.pos, childMp);
-                for (uint j = 0; j < N_EXPANSION_TERMS; j++) {
-                    local.expansion[j] += nodeLocal.expansion[j];
-                }
-            } else {
-                unscannedIndexesOut[outputPointer] = childPointer;
-                outputPointer++;
-            }
+
+        if (nParticles != 0) {
+            // If we are looking at a leaf, we can't write to unscannedIndexes, so recursion is needed.
+            recursiveScan(treeStructure, multipoles, mp, local, toScan, treePointer);
+        } else {
+            nonRecursiveScan(treeStructure, unscannedIndexesOut, multipoles, mp, local, outputPointer, maxOutputPointer, toScan, treePointer);
         }
     }
     
@@ -180,53 +136,8 @@ kernel void downPass(device float3* positions,
     
     // Stage 2: pass our local expansion down.
     if (nParticles == 0) {
-        // Give our local expansion to our children
-        int start = treePointer + 2;
-        int end = start + 8;
-        for (int j = start; j < end; j++) {
-            int nodePointer = treeStructure[j];
-            int nodeDataPointer = treeStructure[nodePointer + 1];
-            Multipole nodeMp = multipoles[nodeDataPointer];
-            if (!nodeMp.active) {
-                continue;
-            }
-            float3 r = nodeMp.pos - local.pos;
-            locals[nodeDataPointer] = transformLocal(local, r);
-        }
+        L2L(treeStructure, multipoles, locals, mp, local, treePointer);
     } else {
-        // Give acceleration to all child particles:
-        int start = treePointer + 2;
-        int end = start + nParticles;
-        for (int i = start; i < end; i++) {
-            int particlePointer = treeStructure[i];
-            if (!active[particlePointer]) {
-                // If particle is inactive, we skip it.
-                continue;
-            }
-            // Otherwise, sum over contributions from surrounding particles.
-            float3 x_i = positions[particlePointer];
-            float3 particleAcceleration = L2P(local, x_i);
-                        
-            float h_i = 0.05;
-            for (int j = start; j < end; j++) {
-                if (i == j) {
-                    continue;
-                }
-                int p_j = treeStructure[j];
-                float3 x_j = positions[p_j];
-                float m_j = masses[p_j];
-
-                float3 x_ij = x_i - x_j;
-                const float r = fast::length(x_ij);
-                if (r == 0) {
-                    continue;
-                }
-
-                const float3 r_hat = x_ij / r;
-                particleAcceleration -= (m_j * dphi_dr(x_ij, h_i)) * r_hat;
-            }
-            accelerations[particlePointer] = G * particleAcceleration;
-            gravNorm[particlePointer] = length(particleAcceleration);
-        }
+        localToLeaf(treeStructure, active, positions, accelerations, masses, gravNorm, multipoles, mp, local, treePointer, nParticles);
     }
 }
