@@ -8,18 +8,21 @@ Full compute to render real time smoothed particle hydrodynamics solver includin
   - Variable time stepping
 
 ## Setup and Usage
-1. Clone the repository:
+1. Install hdf5 with homebrew:
+   ```
+   brew install hdf5
+   ```
+3. Clone the repository:
    ```bash
    git clone https://github.com/Charlie-Close/Real-Time-Planetary-Impacts-MPS.git
    ```
-1. Open the project in Xcode:
+4. Open the project in Xcode:
    ```bash
    cd Real-Time-Planetary-Impacts-MPS
    open SPH.xcodeproj
    ```
-3. Build and run the project:
+5. Build and run the project:
   - Click the Run button in Xcode, and the simulation will start.
-  - No additional setup is needed—dependencies are included.
   - Simulation parameters can be tuned in Parameters.h.
   - Move the camera with WASDQE and click and drag to look around
 
