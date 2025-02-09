@@ -7,7 +7,6 @@
 
 #include "utils/kernels.h"
 #include "utils/cellsToScan.h"
-#include "utils/morton.h"
 #include "../Parameters.h"
 
 kernel void acceleration(device float3* positions,
@@ -64,9 +63,7 @@ kernel void acceleration(device float3* positions,
     for (int x = range.min.x; x <= range.max.x; x++) {
         for (int y = range.min.y; y <= range.max.y; y++) {
             for (int z = range.min.z; z <= range.max.z; z++) {
-                uint cellindex = morton3D((uint) (x % cellsPerDimT),
-                                          (uint) (y % cellsPerDimT),
-                                          (uint) (z % cellsPerDimT));
+                uint cellindex = cellPositionToIndex({ x, y, z }, cellsPerDimT);
                 uint start = cellStarts[cellindex];
                 if (start == UINT_MAX) {
                     // Cell is empty, continue.

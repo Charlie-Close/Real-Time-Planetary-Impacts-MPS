@@ -9,12 +9,33 @@
 #define cellsToScan_h
 
 #include <metal_stdlib>
+#include "morton.h"
 using namespace metal;
 
 struct CellToScanRange {
     int3 min;
     int3 max;
 };
+
+static inline uint cellPositionToIndex(int3 pos, int cellsPerDim) {
+    int3 modded = {
+        pos.x % cellsPerDim,
+        pos.y % cellsPerDim,
+        pos.z % cellsPerDim
+    };
+    
+    if (modded.x < 0) {
+        modded.x += cellsPerDim;
+    }
+    if (modded.y < 0) {
+        modded.y += cellsPerDim;
+    }
+    if (modded.z < 0) {
+        modded.z += cellsPerDim;
+    }
+    
+    return morton3D((uint) modded.x, (uint) modded.y, (uint) modded.z);
+}
 
 static inline CellToScanRange setCellsToScanDynamic(
     float3 position,

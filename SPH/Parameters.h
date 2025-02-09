@@ -39,12 +39,12 @@
 #define GRAVITY_MAX_RECURSION 1
 #define MAX_UNCHECKED_POINTERS 1024
 #define MAX_CHILDREN_IN_LEAF 4
-#define EXTRA_MEMORY_MULTIPLIER 1.5 // When claiming memory for an octree, claim some extra so if our tree goes, we don't need to reclaim
+#define EXTRA_MEMORY_MULTIPLIER 1.2 // When claiming memory for an octree, claim some extra so if our tree goes, we don't need to reclaim
 
 // Cells and sorting
-#define CELL_WIDTH 0.2f
+#define CELL_WIDTH 0.18f
 #define CELL_POWER 8 // total number of cells is 2^(3 * CELL_POWER)
-#define SORTING_BLOCK_SIZE 512
+#define SORTING_BLOCK_SIZE 256
 #define SORTING_MASK_LENGTH 8
 #define SORTING_BUCKET_NUMBER (1 << SORTING_MASK_LENGTH)
 #define SORTING_BIT_MASK (SORTING_BUCKET_NUMBER - 1)

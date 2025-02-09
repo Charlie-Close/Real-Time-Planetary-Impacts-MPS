@@ -26,15 +26,16 @@ kernel void hash(device float3* positions,
         (int)floor(normalised.z) % (*cellsPerDim)
     };
     
-    if (normalised.x < 0) {
-        normalised.x += (*cellsPerDim);
+    if (pos.x < 0) {
+        pos.x += (*cellsPerDim);
     }
-    if (normalised.y < 0) {
-        normalised.y += (*cellsPerDim);
+    if (pos.y < 0) {
+        pos.y += (*cellsPerDim);
     }
-    if (normalised.z < 0) {
-        normalised.z += (*cellsPerDim);
+    if (pos.z < 0) {
+        pos.z += (*cellsPerDim);
     }
+    
     // Interleave the bits to get a Morton index:
     uint cellIndex = morton3D((uint) pos.x,
                               (uint) pos.y,
