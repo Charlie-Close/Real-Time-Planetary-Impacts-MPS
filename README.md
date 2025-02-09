@@ -14,8 +14,8 @@ Full compute to render real time smoothed particle hydrodynamics solver includin
    ```
 1. Open the project in Xcode:
    ```bash
-   cd "SPH"
-   open "SPH.xcodeproj"
+   cd Real-Time-Planetary-Impacts-MPS
+   open SPH.xcodeproj
    ```
 3. Build and run the project:
   - Click the Run button in Xcode, and the simulation will start.
