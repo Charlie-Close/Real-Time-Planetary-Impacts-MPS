@@ -19,16 +19,9 @@ Local M2L(float3 x, Multipole mp) {
     local.expansion[M] = M_000 * D_000;
     
 #if P > 0
-//    const float M_100 = 0.f;
-//    const float M_010 = 0.f;
-//    const float M_001 = 0.f;
-
     const float D_100 = deriv.expansion[X];
     const float D_010 = deriv.expansion[Y];
     const float D_001 = deriv.expansion[Z];
-    
-    /*  1st order multipole term (addition to rank 0)*/
-//    local.expansion[0] += M_100 * D_100 + M_010 * D_010 + M_001 * D_001;
 
     /*  1st order multipole term (addition to rank 1)*/
     local.expansion[X] = M_000 * D_100;
@@ -37,27 +30,22 @@ Local M2L(float3 x, Multipole mp) {
 #endif
 #if P > 1
     const float M_200 = mp.expansion[XX];
-    const float M_020 = mp.expansion[YY];//M_020;
-    const float M_002 = mp.expansion[ZZ];//M_002;
-    const float M_110 = mp.expansion[XY];//M_110;
-    const float M_101 = mp.expansion[XZ];//M_101;
+    const float M_020 = mp.expansion[YY];
+    const float M_002 = mp.expansion[ZZ];
+    const float M_110 = mp.expansion[XY];
+    const float M_101 = mp.expansion[XZ];
     const float M_011 = mp.expansion[YZ];//M_011;
 
-    const float D_200 = deriv.expansion[XX];//D_200;
-    const float D_020 = deriv.expansion[YY];//D_020;
-    const float D_002 = deriv.expansion[ZZ];//D_002;
-    const float D_110 = deriv.expansion[XY];//D_110;
-    const float D_101 = deriv.expansion[XZ];//D_101;
-    const float D_011 = deriv.expansion[YZ];//D_011;
+    const float D_200 = deriv.expansion[XX];
+    const float D_020 = deriv.expansion[YY];
+    const float D_002 = deriv.expansion[ZZ];
+    const float D_110 = deriv.expansion[XY];
+    const float D_101 = deriv.expansion[XZ];
+    const float D_011 = deriv.expansion[YZ];
 
     /*  2nd order multipole term (addition to rank 0)*/
     local.expansion[M] += M_200 * D_200 + M_020 * D_020 + M_002 * D_002;
     local.expansion[M] += M_110 * D_110 + M_101 * D_101 + M_011 * D_011;
-
-//    /*  2nd order multipole term (addition to rank 1)*/
-//    local.expansion[X] += M_100 * D_200 + M_010 * D_110 + M_001 * D_101;
-//    local.expansion[Y] += M_100 * D_110 + M_010 * D_020 + M_001 * D_011;
-//    local.expansion[Z] += M_100 * D_101 + M_010 * D_011 + M_001 * D_002;
 
     /*  2nd order multipole term (addition to rank 2)*/
     local.expansion[XX] = M_000 * D_200;
@@ -103,14 +91,6 @@ Local M2L(float3 x, Multipole mp) {
     local.expansion[Y] += M_110 * D_120 + M_101 * D_111 + M_011 * D_021;
     local.expansion[Z] += M_200 * D_201 + M_020 * D_021 + M_002 * D_003;
     local.expansion[Z] += M_110 * D_111 + M_101 * D_102 + M_011 * D_012;
-
-    /*  3rd order multipole term (addition to rank 2)*/
-//    local.expansion[XX] += M_100 * D_300 + M_010 * D_210 + M_001 * D_201;
-//    local.expansion[YY] += M_100 * D_120 + M_010 * D_030 + M_001 * D_021;
-//    local.expansion[ZZ] += M_100 * D_102 + M_010 * D_012 + M_001 * D_003;
-//    local.expansion[XY] += M_100 * D_210 + M_010 * D_120 + M_001 * D_111;
-//    local.expansion[XZ] += M_100 * D_201 + M_010 * D_111 + M_001 * D_102;
-//    local.expansion[YZ] += M_100 * D_111 + M_010 * D_021 + M_001 * D_012;
 
     /*  3rd order multipole term (addition to rank 3)*/
     local.expansion[XXX] = M_000 * D_300;

@@ -25,41 +25,26 @@ public:
 
 private:
     void buildSphereVertexBuffer(MTL::Device* device);
+    void buildShaders(MTL::Device* device);
+    void buildDepthStencilStates(MTL::Device* device);
+    void encodeCommand(MTL::ComputeCommandEncoder* computeEncoder, MTL::ComputePipelineState* command);
     
     MTL::Buffer* _sphereVertexBuffer;
     MTL::Buffer* _normalBuffer;
     MTL::Buffer* _indexBuffer;
     
     int nSphereIndices;
-    
-    
-    
-    
-    
-
-    
-    
-    
-    
-    void buildShaders(MTL::Device* device);
-    void buildDepthStencilStates(MTL::Device* device);
-    void buildBuffers(MTL::Device* device, MTL::CommandQueue* commandQueue);
-
-    void setBuffers(MTL::ComputeCommandEncoder* computeEncoder);
-    void encodeCommand(MTL::ComputeCommandEncoder* computeEncoder, MTL::ComputePipelineState* command);
-    
     int nPoints;
 
     // Pipleline State Objects
     MTL::RenderPipelineState* _drawPSO;
-    MTL::RenderPipelineState* _drawPSOp;
     
     // Depth stencil
     MTL::DepthStencilState* _depthStencilState;
     
     // Buffers
     MTL::Buffer* _positionBuffer;
-    MTL::Buffer* _extraBuffer;
+    MTL::Buffer* _materialIdBuffer;
     MTL::Buffer* _densityBuffer;
 };
 

@@ -23,30 +23,24 @@ kernel void step(device float3* positions,
                  device int* _dt,
                  uint index [[thread_position_in_grid]])
 {
+    // Convert dt from integer to float
     const float dt = DT_MIN1 * (*_dt);
 
     if (index == 0) {
+        // Advance global time
         *globalTime += (*_dt);
     }
     
     float3 velocity = velocities[index];
     const float3 acceleration = accelerations[index];
     
+    // Integrate forwards
     float h_i = h[index];
     float h1 = 1 / h_i;
     float dhdt = dhdts[index];
-    h[index] = h_i * exp(h1 * dhdt * dt);
-    
-    if (!active[index]) {
-        float density = densities[index];
-        densities[index] = density * exp(-3 * h1 * dhdt * dt);
-        positions[index] += dt * velocity;
-        velocities[index] += dt * acceleration;
-        internalEnergies[index] += dt * dInternalEnergy[index];
-        return;
-    }
-    
-    positions[index] += dt * velocity + 0.5 * acceleration * dt * dt;
-    velocities[index] += dt * acceleration;
+    h[index] *= exp(h1 * dhdt * dt);
+    densities[index] *= exp(-3 * h1 * dhdt * dt);
+    velocities[index] = velocity + dt * acceleration;
     internalEnergies[index] += dt * dInternalEnergy[index];
+    positions[index] += dt * velocity + 0.5 * acceleration * dt * dt;
 }

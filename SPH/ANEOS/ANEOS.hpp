@@ -20,7 +20,7 @@ struct ANEOSTable
     float* rho;
     float* u;
     
-    simd_float2* data;
+    simd_float2* data; // ( pressure, sound_speed )
     
     float minRho;
     float maxRho;
@@ -29,7 +29,6 @@ struct ANEOSTable
 };
 
 ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resolution);
-
 MTL::Texture* createRG32FloatTexture(MTL::Device* device, MTL::CommandQueue* commandQueue, const ANEOSTable& table);
 
 #endif /* ANEOS_hpp */

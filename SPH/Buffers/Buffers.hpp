@@ -17,23 +17,11 @@ void copyDataToTexture(MTL::CommandQueue* commandQueue, MTL::Texture *privateTex
 
 template <typename T>
 void writeDataToBuffer(MTL::Buffer *buffer, std::vector<T> data) {
-//    void* voidBuffer = buffer->contents();
-//    T* castBuffer = static_cast<T*>(voidBuffer);
-//    
-//    for (int i = 0; i < data.size(); i++) {
-//        castBuffer[i] = data[i];
-//    }
     memcpy( buffer->contents(), data.data(), sizeof( T ) * data.size() );
 }
 
 template <typename T>
 void writeDataToBuffer(MTL::Buffer *buffer, T *data, unsigned long n) {
-//    void* voidBuffer = buffer->contents();
-//    T* castBuffer = static_cast<T*>(voidBuffer);
-//    
-//    for (int i = 0; i < n; i++) {
-//        castBuffer[i] = data[i];
-//    }
     memcpy( buffer->contents(), data, sizeof(T) * n );
 }
 

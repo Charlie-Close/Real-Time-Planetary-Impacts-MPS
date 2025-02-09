@@ -33,7 +33,7 @@ void reduce_mesh_data(std::vector<simd_float3>& verts,
     for (size_t i = 0; i < verts.size(); ++i) {
         const simd_float3& vert = verts[i];
         if (unique_verts_map.find(vert) == unique_verts_map.end()) {
-            unique_verts_map[vert] = unique_verts.size();
+            unique_verts_map[vert] = (int)unique_verts.size();
             unique_verts.push_back(vert);
         }
         inverse_indices[i] = unique_verts_map[vert];

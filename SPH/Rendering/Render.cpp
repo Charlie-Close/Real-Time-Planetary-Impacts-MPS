@@ -62,6 +62,8 @@ void Renderer::draw(MTK::View* pView)
     });
     
 
+    // The simulation logic is in here. Can run multiple simulation steps per frame.
+    // Only attempt to update octree once (this is running on CPU, so running multiple times won't do anything.
     compute->updateOctreeBuffer(_pDevice);
     for (int i = 0; i < STEPS_PER_FRAME; i++) {
         compute->sort(pCmd);

@@ -24,9 +24,8 @@ Particles::Particles(MTL::Device* device, MTL::Buffer* particlePositions, MTL::B
     buildShaders(device);
     buildDepthStencilStates(device);
 
-    MTL::CommandQueue* commandQueue = device->newCommandQueue();
     _positionBuffer = particlePositions;
-    _extraBuffer = extraBuffer;
+    _materialIdBuffer = extraBuffer;
     _densityBuffer = densityBuffer;
 }
 
@@ -42,13 +41,7 @@ void Particles::buildSphereVertexBuffer(MTL::Device* device) {
     std::vector<uint16_t> indices;
     
     std::tie(vertices, normals, indices) = generateSphere(PARTICLE_SIZE, PARTICLE_SUBDIVITIONS);
-    
-    
-    
     nSphereIndices = (int)indices.size() * 3;
-    
-    std::cout << nSphereIndices << std::endl;
-    
     
     _sphereVertexBuffer = device->newBuffer( vertices.size() * sizeof(simd_float3), MTL::ResourceStorageModeShared );
     _normalBuffer = device->newBuffer( normals.size() * sizeof(simd_float3), MTL::ResourceStorageModeShared );
@@ -78,24 +71,6 @@ void Particles::buildShaders(MTL::Device* device) {
     pVertexFn->release();
     pFragFn->release();
     pDesc->release();
-    
-    
-    
-    
-    
-    MTL::Function* pVertexPn = defaultLibrary->newFunction( NS::String::string("vertexPoint", NS::StringEncoding::UTF8StringEncoding) );
-    MTL::Function* pFragPn = defaultLibrary->newFunction( NS::String::string("fragmentPoint", NS::StringEncoding::UTF8StringEncoding) );
-
-    MTL::RenderPipelineDescriptor* pDescPn = MTL::RenderPipelineDescriptor::alloc()->init();
-    pDescPn->setVertexFunction( pVertexPn );
-    pDescPn->setFragmentFunction( pFragPn );
-    pDescPn->colorAttachments()->object(0)->setPixelFormat( MTL::PixelFormat::PixelFormatBGRA8Unorm_sRGB );
-    pDescPn->setDepthAttachmentPixelFormat( MTL::PixelFormat::PixelFormatDepth16Unorm );
-    _drawPSOp = device->newRenderPipelineState( pDescPn, error );
-
-    pVertexPn->release();
-    pFragPn->release();
-    pDescPn->release();
 }
 
 void Particles::buildDepthStencilStates(MTL::Device* device) {
@@ -121,7 +96,7 @@ void Particles::draw(MTL::RenderCommandEncoder *pEnc, MTL::Buffer* cameraDataBuf
     pEnc->setVertexBuffer(_normalBuffer, 0, 1); // Normal Buffer
     pEnc->setVertexBuffer(_positionBuffer, 0, 2);    // Per-instance particle positions
     pEnc->setVertexBuffer(cameraDataBuffer, 0, 3);   // Camera data buffer
-    pEnc->setVertexBuffer(_extraBuffer, 0, 4);       // Extra data buffer
+    pEnc->setVertexBuffer(_materialIdBuffer, 0, 4);       // Extra data buffer
     pEnc->setVertexBuffer(_densityBuffer, 0, 5);       // density data buffer
 
     // Draw instanced spheres

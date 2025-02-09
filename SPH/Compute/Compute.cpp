@@ -82,63 +82,6 @@ void Compute::loadInitialConditions(MTL::Device* device, MTL::CommandQueue* comm
     updateOctreeBuffer(device);
 }
 
-void Compute::updateOctreeBuffer(MTL::Device* device) {
-    if (updating) {
-        return;
-    }
-    
-    treeLevels = treeLevelsTemp;
-    
-    long treeDataSize = nodeValues;
-    if (treeDataSize > prevTreeValuesSize) {
-        treeDataSize *= EXTRA_MEMORY_MULTIPLIER;
-        _multipoleExpansions->release();
-        _localExpansion->release();
-        _parentIndexes->release();
-        _multipoleExpansions = device->newBuffer(treeDataSize * sizeof(Multipole), MTL::ResourceStorageModePrivate);
-        _localExpansion = device->newBuffer(treeDataSize * sizeof(Local), MTL::ResourceStorageModePrivate);
-        _parentIndexes = device->newBuffer(treeDataSize * sizeof(uint), MTL::ResourceStorageModePrivate);
-        prevTreeValuesSize = treeDataSize;
-    }
-
-    _tree->release();
-    _tree = _treeTmp;
-    
-    _treeLevelBuffers.clear();
-    long maxSize = 0;
-    for (int i = 0; i < treeLevels.size(); i++) {
-        MTL::Buffer* treeLevelBuffer = device->newBuffer(treeLevels[i].size() * sizeof(int), MTL::ResourceStorageModeShared);
-        if (i != treeLevels.size() - 1) {
-            maxSize = fmax(maxSize, treeLevels[i].size());
-        }
-        writeDataToBuffer(treeLevelBuffer, treeLevels[i]);
-        _treeLevelBuffers.push_back(treeLevelBuffer);
-    }
-    
-    long gravDataSize = maxSize * sizeof(int) * MAX_UNCHECKED_POINTERS;
-    if (gravDataSize > prevGravDataSize) {
-        gravDataSize *= EXTRA_MEMORY_MULTIPLIER;
-        _localGravi->release();
-        _localGravj->release();
-        _localGravi = device->newBuffer(gravDataSize, MTL::ResourceStorageModePrivate);
-        _localGravj = device->newBuffer(gravDataSize, MTL::ResourceStorageModePrivate);
-        prevGravDataSize = gravDataSize;
-    }
-    
-    updating = true;
-    std::thread([this](MTL::Device* _device) {
-        this->updateOctreeData(_device);
-    }, device).detach();
-}
-
-void Compute::updateOctreeData(MTL::Device* device) {
-    simd_float3* positions = static_cast<simd_float3*>(positionBuffer->contents());
-    buildOctree(positions, nParticles, octreeData, treeLevelsTemp, nodeValues, MAX_CHILDREN_IN_LEAF);
-    _treeTmp = device->newBuffer(octreeData.size() * sizeof(int), MTL::ResourceStorageModeShared);
-    writeDataToBuffer(_treeTmp, octreeData);
-    updating = false;
-}
-
 // -------------------------------- //
 //                                  //
 //      Metal Object Builders       //
@@ -160,7 +103,6 @@ void Compute::buildBuffers(MTL::Device* device, MTL::CommandQueue *commandQueue)
     _gradientTermsBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _speedOfSoundBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _dInternalEnergyBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
-    _potentialGradientBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _balsara = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _cellArrayi = device->newBuffer(nParticles * sizeof(simd_uint2), MTL::ResourceStorageModePrivate);
     _cellArrayj = device->newBuffer(nParticles * sizeof(simd_uint2), MTL::ResourceStorageModePrivate);
@@ -177,7 +119,7 @@ void Compute::buildBuffers(MTL::Device* device, MTL::CommandQueue *commandQueue)
     _cellSize = device->newBuffer(sizeof(float), MTL::ResourceStorageModePrivate);
     _cellsPerDim = device->newBuffer(sizeof(int), MTL::ResourceStorageModePrivate);
     _leafPointers = device->newBuffer(nParticles * sizeof(int), MTL::ResourceStorageModePrivate);
-    _active = device->newBuffer(sizeof(bool) * nParticles, MTL::ResourceStorageModeShared);
+    _active = device->newBuffer(sizeof(bool) * nParticles, MTL::ResourceStorageModePrivate);
     _dt = device->newBuffer(sizeof(float), MTL::ResourceStorageModePrivate);
     _gravAbs = device->newBuffer(sizeof(float) * nParticles, MTL::ResourceStorageModePrivate);
     _tree = nullptr;
@@ -244,17 +186,14 @@ void Compute::densityPass(MTL::CommandBuffer* commandBuffer) {
     computeEncoder->setBuffer(materialIdBuffer, 0, 7);
     computeEncoder->setBuffer(_gradientTermsBuffer, 0, 8);
     computeEncoder->setBuffer(_speedOfSoundBuffer, 0, 9);
-    computeEncoder->setBuffer(_potentialGradientBuffer, 0, 10);
-    computeEncoder->setBuffer(_balsara, 0, 11);
-    computeEncoder->setBuffer(_cellArrayi, 0, 12);
-    computeEncoder->setBuffer(_cellStart, 0, 13);
-    computeEncoder->setBuffer(_cellEnd, 0, 14);
-    computeEncoder->setBuffer(_cellSize, 0, 15);
-    computeEncoder->setBuffer(_cellsPerDim, 0, 16);
-    computeEncoder->setBuffer(_active, 0, 17);
-    computeEncoder->setBuffer(_nextActiveTime, 0, 18);
-    computeEncoder->setBuffer(_globalTime, 0, 19);
-    computeEncoder->setBuffer(_dt, 0, 20);
+    computeEncoder->setBuffer(_balsara, 0, 10);
+    computeEncoder->setBuffer(_cellArrayi, 0, 11);
+    computeEncoder->setBuffer(_cellStart, 0, 12);
+    computeEncoder->setBuffer(_cellEnd, 0, 13);
+    computeEncoder->setBuffer(_cellSize, 0, 14);
+    computeEncoder->setBuffer(_cellsPerDim, 0, 15);
+    computeEncoder->setBuffer(_active, 0, 16);
+    computeEncoder->setBuffer(_dt, 0, 17);
     computeEncoder->setTexture(_forsterite, 0);
     computeEncoder->setTexture(_Fe85Si15, 1);
     
@@ -279,18 +218,17 @@ void Compute::accelerationPass(MTL::CommandBuffer* commandBuffer) {
     computeEncoder->setBuffer(_gradientTermsBuffer, 0, 8);
     computeEncoder->setBuffer(_speedOfSoundBuffer, 0, 9);
     computeEncoder->setBuffer(_dInternalEnergyBuffer, 0, 10);
-    computeEncoder->setBuffer(_potentialGradientBuffer, 0, 11);
-    computeEncoder->setBuffer(_balsara, 0, 12);
-    computeEncoder->setBuffer(_dhdt, 0, 13);
-    computeEncoder->setBuffer(_cellArrayi, 0, 14);
-    computeEncoder->setBuffer(_cellStart, 0, 15);
-    computeEncoder->setBuffer(_cellEnd, 0, 16);
-    computeEncoder->setBuffer(_cellSize, 0, 17);
-    computeEncoder->setBuffer(_cellsPerDim, 0, 18);
-    computeEncoder->setBuffer(_active, 0, 19);
-    computeEncoder->setBuffer(_nextActiveTime, 0, 20);
-    computeEncoder->setBuffer(_globalTime, 0, 21);
-    computeEncoder->setBuffer(_dt, 0, 22);
+    computeEncoder->setBuffer(_balsara, 0, 11);
+    computeEncoder->setBuffer(_dhdt, 0, 12);
+    computeEncoder->setBuffer(_cellArrayi, 0, 13);
+    computeEncoder->setBuffer(_cellStart, 0, 14);
+    computeEncoder->setBuffer(_cellEnd, 0, 15);
+    computeEncoder->setBuffer(_cellSize, 0, 16);
+    computeEncoder->setBuffer(_cellsPerDim, 0, 17);
+    computeEncoder->setBuffer(_active, 0, 18);
+    computeEncoder->setBuffer(_nextActiveTime, 0, 19);
+    computeEncoder->setBuffer(_globalTime, 0, 20);
+    computeEncoder->setBuffer(_dt, 0, 21);
     encodeCommand(computeEncoder, _accelerationPSO, nParticles);
 
     //  End the compute pass.
@@ -448,4 +386,69 @@ void Compute::encodeCommand(MTL::ComputeCommandEncoder* computeEncoder, MTL::Com
 
     // Encode the compute command.
     computeEncoder->dispatchThreads(gridSize, threadgroupSize);
+}
+
+
+// -------------------------------- //
+//                                  //
+//          Octree Stuff            //
+//                                  //
+// -------------------------------- //
+
+void Compute::updateOctreeBuffer(MTL::Device* device) {
+    if (updating) {
+        return;
+    }
+    
+    treeLevels = treeLevelsTemp;
+    
+    long nodeValuesSize = nodeValues;
+    if (nodeValuesSize > prevNodeValues) {
+        // Multiply by a factor so we don't have to keep claiming large amounts of memory.
+        nodeValuesSize *= EXTRA_MEMORY_MULTIPLIER;
+        _multipoleExpansions->release();
+        _localExpansion->release();
+        _parentIndexes->release();
+        _multipoleExpansions = device->newBuffer(nodeValuesSize * sizeof(Multipole), MTL::ResourceStorageModePrivate);
+        _localExpansion = device->newBuffer(nodeValuesSize * sizeof(Local), MTL::ResourceStorageModePrivate);
+        _parentIndexes = device->newBuffer(nodeValuesSize * sizeof(uint), MTL::ResourceStorageModePrivate);
+        prevNodeValues = nodeValuesSize;
+    }
+
+    _tree->release();
+    _tree = _treeTmp;
+    
+    _treeLevelBuffers.clear();
+    long maxSize = 0;
+    for (int i = 0; i < treeLevels.size(); i++) {
+        MTL::Buffer* treeLevelBuffer = device->newBuffer(treeLevels[i].size() * sizeof(int), MTL::ResourceStorageModeShared);
+        if (i != treeLevels.size() - 1) {
+            maxSize = fmax(maxSize, treeLevels[i].size());
+        }
+        writeDataToBuffer(treeLevelBuffer, treeLevels[i]);
+        _treeLevelBuffers.push_back(treeLevelBuffer);
+    }
+    
+    long gravDataSize = maxSize * sizeof(int) * MAX_UNCHECKED_POINTERS;
+    if (gravDataSize > prevGravDataSize) {
+        gravDataSize *= EXTRA_MEMORY_MULTIPLIER;
+        _localGravi->release();
+        _localGravj->release();
+        _localGravi = device->newBuffer(gravDataSize, MTL::ResourceStorageModePrivate);
+        _localGravj = device->newBuffer(gravDataSize, MTL::ResourceStorageModePrivate);
+        prevGravDataSize = gravDataSize;
+    }
+    
+    updating = true;
+    std::thread([this](MTL::Device* _device) {
+        this->updateOctreeData(_device);
+    }, device).detach();
+}
+
+void Compute::updateOctreeData(MTL::Device* device) {
+    simd_float3* positions = static_cast<simd_float3*>(positionBuffer->contents());
+    buildOctree(positions, nParticles, octreeData, treeLevelsTemp, nodeValues, MAX_CHILDREN_IN_LEAF);
+    _treeTmp = device->newBuffer(octreeData.size() * sizeof(int), MTL::ResourceStorageModeShared);
+    writeDataToBuffer(_treeTmp, octreeData);
+    updating = false;
 }

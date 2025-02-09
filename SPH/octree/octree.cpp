@@ -29,13 +29,15 @@ int buildOctreeRecursive(
         }
         treeLevels[level].push_back(nodeStart);
 
-        // Write leaf data
+        
+        // Write leaf data:
+        // [number of particles, data pointer (node values), p0, p1, p2, ... pN]
         int N = (int)subsetIndices.size();
-        octreeData.push_back(N); // number of particles
+        octreeData.push_back(N);
         octreeData.push_back(nodeValues);
         nodeValues += 1;
         for (int pid : subsetIndices) {
-            octreeData.push_back(pid); // each particle index
+            octreeData.push_back(pid);
         }
 
         return nodeStart;
@@ -44,7 +46,8 @@ int buildOctreeRecursive(
     // Otherwise, create a BRANCH node
     int nodeStart = (int)octreeData.size();
 
-    // Reserve space for the 10 integers
+    // Reserve space for the 10 integers:
+    // [0, data pointer (node values), 8xchild pointers]
     for (int i = 0; i < 10; i++) {
         octreeData.push_back(-1);
     }
@@ -121,17 +124,15 @@ void buildOctree(
         return;
     }
 
-    // 2. Create a list of all particle indices
     std::vector<int> allIndices;
     for (int i = 0; i < positionCount; i++) {
         allIndices.push_back(i);
     }
 
-    // 3. Recursively build the octree from the root
     buildOctreeRecursive(
         positions,
         allIndices,
-        0,                // level
+        0,
         maxLeafSize,
         octreeData,
         treeLevels,

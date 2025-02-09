@@ -40,13 +40,13 @@ typedef struct {
 class Compute {
 public:
     Compute(MTL::Device* device);
+    
+    // Public functions
     void updateOctreeBuffer(MTL::Device* device);
-    void updateOctreeBufferTest(MTL::Device* device);
     void gravitationalPass(MTL::CommandBuffer* commandBuffer);
     void densityPass(MTL::CommandBuffer* commandBuffer);
     void accelerationPass(MTL::CommandBuffer* commandBuffer);
     void stepPass(MTL::CommandBuffer* commandBuffer);
-    
     void sort(MTL::CommandBuffer* commandBuffer);
 
 
@@ -58,31 +58,29 @@ public:
     int nParticles;
 
 private:
+    // Private functions
     void buildShaders(MTL::Device* device);
     void buildBuffers(MTL::Device* device, MTL::CommandQueue* commandQueue);
     void loadInitialConditions(MTL::Device* device, MTL::CommandQueue* commandQueue, DataStruct data);
     void updateOctreeData(MTL::Device* device);
     void encodeCommand(MTL::ComputeCommandEncoder* computeEncoder, MTL::ComputePipelineState* command, long size);
     
+    // Octree stuff
     std::vector<std::vector<int>> treeLevels;
     std::vector<std::vector<int>> treeLevelsTemp;
     std::vector<int> octreeData;
     int nodeValues;
     bool updating = false;
-    int nBlocks;
     long prevGravDataSize = 0;
-    long prevTreeValuesSize = 0;
+    long prevNodeValues = 0;
     
+    // Cells and sorting
+    int nBlocks;
     int cellsPerDim;
     float cellSize;
 
-    MTL::ComputePipelineState* _densityPSO;
-    MTL::ComputePipelineState* _accelerationPSO;
-    MTL::ComputePipelineState* _gravityPSO;
-    MTL::ComputePipelineState* _upTreePSO;
-    MTL::ComputePipelineState* _downTreePSO;
-    MTL::ComputePipelineState* _mStepPSO;
-    
+    // Pipeline State Objects
+    // Sorting algorithm
     MTL::ComputePipelineState* _hashPSO;
     MTL::ComputePipelineState* _histPSO;
     MTL::ComputePipelineState* _scanPSO;
@@ -90,9 +88,15 @@ private:
     MTL::ComputePipelineState* _sortPSO;
     MTL::ComputePipelineState* _initialisePSO;
     MTL::ComputePipelineState* _findPosPSO;
+    // Gravity up and down pass
+    MTL::ComputePipelineState* _upTreePSO;
+    MTL::ComputePipelineState* _downTreePSO;
+    // Hydro passes
+    MTL::ComputePipelineState* _densityPSO;
+    MTL::ComputePipelineState* _accelerationPSO;
+    MTL::ComputePipelineState* _mStepPSO;
 
-
-    
+    // Buffers
     MTL::Buffer* _velocityBuffer;
     MTL::Buffer* _accelerationBuffer;
     MTL::Buffer* _internalEnergyBuffer;
@@ -102,7 +106,6 @@ private:
     MTL::Buffer* _gradientTermsBuffer;
     MTL::Buffer* _speedOfSoundBuffer;
     MTL::Buffer* _dInternalEnergyBuffer;
-    MTL::Buffer* _potentialGradientBuffer;
     MTL::Buffer* _cellArrayi;
     MTL::Buffer* _cellArrayj;
     MTL::Buffer* _bucketHist;
@@ -132,7 +135,7 @@ private:
     MTL::Buffer* _globalTime;
     MTL::Buffer* _dhdt;
 
-    
+    // ANEOS textures
     MTL::Texture* _forsterite;
     MTL::Texture* _Fe85Si15;
 };

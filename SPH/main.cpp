@@ -18,7 +18,7 @@ int main( int argc, char* argv[] )
 {
     // Stops multiple windows (silly bug which apple need to fix).
     // https://developer.apple.com/forums/thread/765445
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
     
     // The actual interesting code is in Render.cpp. This is just the code necessary
     // to run a metal application.
