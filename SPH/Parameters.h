@@ -12,7 +12,7 @@
 #define VISCOSITY_ALPHA 1.5f
 #define DENSITY_ETA .005f // half a percent error
 #define MAX_SMOOTHING_LENGTH .5f
-#define MAX_DENSITY_NR_ITTERATIONS 1
+#define MAX_DENSITY_NR_ITTERATIONS 50
 #define N_NEIGHBOURS_ESTIM 128 //Estimate number of neighbours. Used for caching on density pass. If too small, can't use cache.
 
 // EOS
