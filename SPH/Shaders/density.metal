@@ -56,72 +56,93 @@ kernel void density(device float3* positions,
     
     float3 position = positions[ind];
     float h_i = h[ind];
+    int max_h = 0;
     float h2x4 = 4 * h_i * h_i;
     float h1 = 1 / h_i;
     float mass_i = masses[ind];
     float density = 0;
-    int cellsPerDimT = *cellsPerDim;
     float eps = 1;
     int count = 0;
 
     // Cache neighbours to speed up second pass
     int nNeighbours;
     uint neighbourIndex[N_NEIGHBOURS_ESTIM];
+    float rs[N_NEIGHBOURS_ESTIM];
         
     // Find the smoothing length of our particle with the NR method.
     while (eps > DENSITY_ETA and count < MAX_DENSITY_NR_ITTERATIONS) {
         // Find which cells are within our smoothing length.
-        CellToScanRange range = setCellsToScanDynamic(position, *cellSize, *cellsPerDim, h_i);
         density = 0;
-        nNeighbours = 0;
         
-        for (int x = range.min.x; x <= range.max.x; x++) {
-            for (int y = range.min.y; y <= range.max.y; y++) {
-                for (int z = range.min.z; z <= range.max.z; z++) {
-                    uint cellindex = cellPositionToIndex({ x, y, z }, cellsPerDimT);
-                    
-                    uint start = cellStarts[cellindex];
-                    if (start == UINT_MAX) {
-                        // Cell is empty, continue.
-                        continue;
-                    }
-                    
-                    // Loop through every particle within the cell
-                    uint end = cellEnds[cellindex] + 1;
-                    for (uint k = start; k < end; k++) {
-                        const uint j = cellData[k].y;
-                        float3 x_ij = position - positions[j];
-                        float r2 = length_squared(x_ij);
-                        if (r2 > h2x4) {
-                            // Cell out of range, continue
+        if (h_i < max_h and nNeighbours < N_NEIGHBOURS_ESTIM) {
+            for (int i = 0; i < nNeighbours; i++) {
+                const uint j = neighbourIndex[i];
+                float r = rs[i];
+                if (r > h_i + h_i) {
+                    // out of range, continue
+                    continue;
+                }
+                float W_ij = W(r, h1);
+                float mass = masses[j];
+                density += W_ij * mass;
+            }
+        } else {
+            CellToScanRange range = setCellsToScanDynamic(position, *cellSize, *cellsPerDim, h_i);
+            nNeighbours = 0;
+            for (int x = range.min.x; x <= range.max.x; x++) {
+                for (int y = range.min.y; y <= range.max.y; y++) {
+                    for (int z = range.min.z; z <= range.max.z; z++) {
+                        uint cellindex = cellPositionToIndex({ x, y, z });
+                        
+                        uint start = cellStarts[cellindex];
+                        if (start == UINT_MAX) {
+                            // Cell is empty, continue.
                             continue;
                         }
-                        // If we have space, add to cache.
-                        if (nNeighbours < N_NEIGHBOURS_ESTIM) {
-                            neighbourIndex[nNeighbours] = j;
-                            nNeighbours++;
+                        
+                        // Loop through every particle within the cell
+                        uint end = cellEnds[cellindex] + 1;
+                        for (uint k = start; k < end; k++) {
+                            const uint j = cellData[k].y;
+                            float3 x_ij = positions[j] - position;
+                            float r2 = length_squared(x_ij);
+                            if (r2 > h2x4) {
+                                // Cell out of range, continue
+                                continue;
+                            }
+                            float r = sqrt(r2);
+                            // If we have space, add to cache.
+                            if (nNeighbours < N_NEIGHBOURS_ESTIM) {
+                                neighbourIndex[nNeighbours] = j;
+                                rs[nNeighbours] = r;
+                                nNeighbours++;
+                            }
+                            float W_ij = W(r, h1);
+                            float mass = masses[j];
+                            density += W_ij * mass;
                         }
-                        float W_ij = W(sqrt(r2), h1);
-                        float mass = masses[j];
-                        density += W_ij * mass;
+                        
                     }
-                    
                 }
             }
         }
          
         // Estimate smoothing length based on density.
-        float newH = min(1.2348 * pow(mass_i / density, 1.f / 3), MAX_SMOOTHING_LENGTH);
+        float newH = min(RESOLUTION_ETA * pow(mass_i / density, 1.f / 3), MAX_SMOOTHING_LENGTH);
+        newH = 0.5 * (h_i + newH);
+        
         // eps checks if we are converging.
         eps = abs(newH - h_i) / h_i;
-        h_i = newH;
-        h1 = 1 / h_i;
-        h2x4 = 4 * h_i * h_i;
-        count++;
+        if (eps > DENSITY_ETA) {
+            max_h = fmax(max_h, h_i);
+            h_i = newH;
+            h1 = 1 / h_i;
+            h2x4 = 4 * h_i * h_i;
+            count++;
+        }
     }
     
     // Now we have our smoothing length. We can go and calculate this stuff:
-    density = 0;
     float density_h = 0;
     float velDiv = 0;
     float3 velCurl = { 0, 0, 0 };
@@ -129,25 +150,25 @@ kernel void density(device float3* positions,
     // If we haven't overflowed, we can use our cache to speed things up.
     if (nNeighbours < N_NEIGHBOURS_ESTIM) {
         for (int i = 0; i < nNeighbours; i++) {
-            int j = neighbourIndex[i];
-            float3 x_ij = position - positions[j];
-            float r2 = length_squared(x_ij);
-            if (r2 > h2x4) {
+            const uint j = neighbourIndex[i];
+            float r = rs[i];
+            if (r > h_i + h_i) {
                 // Particle is out of range - skip it.
                 continue;
             }
             // Apply our equations.
-            float r = sqrt(r2);
-            float r1 = 1 / r;
-            float W_ij = W(r, h1);
             float mass = masses[j];
-            density += W_ij * mass;
-            density_h -= mass * dW_dh(r, h1);
-            float3 v_j = velocities[j];
-            float3 v_ij = v_i - v_j;
-            float3 gW = gradW(x_ij, r, r1, h1);
-            velDiv += mass * dot(v_ij, gW);
-            velCurl += mass * cross(v_ij, gW);
+            density_h += mass * dW_dh(r, h1);
+            if (r > 1e-12) {
+                float r1 = 1 / r;
+                float3 v_j = velocities[j];
+                float3 v_ij = v_j - v_i;
+                float3 x_ij = positions[j] - position;
+                float3 gW = gradW(x_ij, r, r1, h1);
+                velDiv += mass * dot(v_ij, gW);
+                velCurl += mass * cross(v_ij, gW);
+            }
+
         }
     } else {
         // Our cache has overflowed. Regrettably we need to loop though surrounding cells.
@@ -155,7 +176,7 @@ kernel void density(device float3* positions,
         for (int x = range.min.x; x <= range.max.x; x++) {
             for (int y = range.min.y; y <= range.max.y; y++) {
                 for (int z = range.min.z; z <= range.max.z; z++) {
-                    uint cellindex = cellPositionToIndex({ x, y, z }, cellsPerDimT);
+                    uint cellindex = cellPositionToIndex({ x, y, z });
                     
                     uint start = cellStarts[cellindex];
                     if (start == UINT_MAX) {
@@ -164,7 +185,7 @@ kernel void density(device float3* positions,
                     uint end = cellEnds[cellindex] + 1;
                     for (uint k = start; k < end; k++) {
                         const uint j = cellData[k].y;
-                        float3 x_ij = position - positions[j];
+                        float3 x_ij = positions[j] - position;
                         float r2 = length_squared(x_ij);
                         if (r2 > h2x4) {
                             // Particle is out of range - skip it.
@@ -172,16 +193,19 @@ kernel void density(device float3* positions,
                         }
                         // Apply our equations.
                         float r = sqrt(r2);
-                        float r1 = 1 / r;
                         float W_ij = W(r, h1);
                         float mass = masses[j];
                         density += W_ij * mass;
-                        density_h -= mass * dW_dh(r, h1);
-                        float3 v_j = velocities[j];
-                        float3 v_ij = v_i - v_j;
-                        float3 gW = gradW(x_ij, r, r1, h1);
-                        velDiv += mass * dot(v_ij, gW);
-                        velCurl += mass * cross(v_ij, gW);
+                        density_h += mass * dW_dh(r, h1);
+                        
+                        if (r > 1e-12) {
+                            float r1 = 1 / r;
+                            float3 v_j = velocities[j];
+                            float3 v_ij = v_j - v_i;
+                            float3 gW = gradW(x_ij, r, r1, h1);
+                            velDiv += mass * dot(v_ij, gW);
+                            velCurl += mass * cross(v_ij, gW);
+                        }
                     }
                 }
             }
@@ -195,7 +219,7 @@ kernel void density(device float3* positions,
     // Update our smoothing length, density and gradient terms
     h[ind] = h_i;
     densities[ind] = density;
-    gradientTerms[ind] = - 1 / (1 + (h_i / (3 * density)) * density_h);
+    gradientTerms[ind] = 1 / (1 + (h_i / (3 * density)) * density_h);
     
     // Apply our equations of state to update our pressure and sound speed
     float u = internalEnergies[ind];

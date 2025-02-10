@@ -45,3 +45,22 @@ half4 fragment fragmentSphere(VertOut in [[stage_in]])
 {
     return half4( in.colour, 1.0 );
 }
+
+kernel void drawToSnapshot(device float3* positions,
+                           device int* materialIds,
+                           device atomic_int* output,
+                           uint index [[thread_position_in_grid]])
+{
+    const float R_E = 6.3710;
+    float2 uv = positions[index].xy;// / (20 * R_E);
+    uv.x -= 250;
+    uv.y -= 250;
+    uv *= SNAPSHOT_RESOLUTION / (20 * R_E);
+    if (uv.x < 0 or uv.y < 0 or uv.x > SNAPSHOT_RESOLUTION or uv.y > SNAPSHOT_RESOLUTION) {
+        return;
+    }
+    
+    int pixel = (int)uv.x + (SNAPSHOT_RESOLUTION - 1 - (int)uv.y) * SNAPSHOT_RESOLUTION;
+    
+    atomic_fetch_max_explicit(&(output[pixel]), materialIds[index], memory_order_relaxed);
+}

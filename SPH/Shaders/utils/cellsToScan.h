@@ -10,6 +10,7 @@
 
 #include <metal_stdlib>
 #include "morton.h"
+#include "../../Parameters.h"
 using namespace metal;
 
 struct CellToScanRange {
@@ -17,22 +18,14 @@ struct CellToScanRange {
     int3 max;
 };
 
-static inline uint cellPositionToIndex(int3 pos, int cellsPerDim) {
-    int3 modded = {
-        pos.x % cellsPerDim,
-        pos.y % cellsPerDim,
-        pos.z % cellsPerDim
-    };
+static inline uint cellPositionToIndex(int3 pos) {
+    int mask = (1 << CELL_POWER) - 1;
     
-    if (modded.x < 0) {
-        modded.x += cellsPerDim;
-    }
-    if (modded.y < 0) {
-        modded.y += cellsPerDim;
-    }
-    if (modded.z < 0) {
-        modded.z += cellsPerDim;
-    }
+    int3 modded = {
+        pos.x & mask,
+        pos.y & mask,
+        pos.z & mask
+    };
     
     return morton3D((uint) modded.x, (uint) modded.y, (uint) modded.z);
 }

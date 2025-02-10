@@ -56,14 +56,13 @@ kernel void acceleration(device float3* positions,
     float du_dt = 0;
     float dhdt = 0;
     
-    int cellsPerDimT = *cellsPerDim;
     // Get our surrounding cells
-    CellToScanRange range = setCellsToScanDynamic(x_i, *cellSize, *cellsPerDim, h_i);
+    CellToScanRange range = setCellsToScanDynamic(x_i, *cellSize, *cellsPerDim, min(h_i, MAX_SMOOTHING_LENGTH));
     float v_sigi = 1e-12;
     for (int x = range.min.x; x <= range.max.x; x++) {
         for (int y = range.min.y; y <= range.max.y; y++) {
             for (int z = range.min.z; z <= range.max.z; z++) {
-                uint cellindex = cellPositionToIndex({ x, y, z }, cellsPerDimT);
+                uint cellindex = cellPositionToIndex({ x, y, z });
                 uint start = cellStarts[cellindex];
                 if (start == UINT_MAX) {
                     // Cell is empty, continue.
@@ -78,8 +77,8 @@ kernel void acceleration(device float3* positions,
                     float r2 = length_squared(x_ij);
                     float h_j = h[j];
                     float hj2x4 = h_j * h_j * 4;
-                    if (r2 > hi2x4 and r2 > hj2x4) {
-                        // Cell is out of range, skip.
+                    if (r2 > hi2x4 and r2 > hj2x4 or r2 < 1e-12) {
+                        // Cell is out of range or on top of us, skip.
                         continue;
                     }
                     // Fetch and calculate info about particle
@@ -103,19 +102,20 @@ kernel void acceleration(device float3* positions,
                     // Viscosity term
                     float B_j = balsara[j];
                     float B_ij = 0.5 * (B_i + B_j);
-                    float nu_ij = 0.5 * VISCOSITY_ALPHA * B_ij * mu_ij * v_sigij / rho_ij;
+                    float nu_ij = - 0.5 * VISCOSITY_ALPHA * B_ij * mu_ij * v_sigij / rho_ij;
                     
-                    float3 gW_i = - gradW(x_ij, r, r1, hi1);
-                    float3 gW_j = - gradW(x_ij, r, r1, hj1);
+                    float3 gW_i = gradW(x_ij, r, r1, hi1);
+                    float3 gW_j = gradW(x_ij, r, r1, hj1);
+                    float3 gW_ij = 0.5 * (gW_i + gW_j);
                     
                     // Acceleration terms
                     float3 t_i = fact_i * gW_i;
                     float3 t_j = fact_j * gW_j;
-                    float3 t_visc = nu_ij * 0.5 * (gW_i + gW_j);
+                    float3 t_visc = nu_ij * gW_ij;
                     
                     // Accumulate
                     dv_dt -= m_j * (t_i + t_j + t_visc);
-                    du_dt += m_j * (fact_i * dot(v_ij, gW_i) + 0.5 * nu_ij * dot(v_ij, 0.5 * (gW_i + gW_j)));
+                    du_dt += m_j * (fact_i * dot(v_ij, gW_i) + 0.5 * nu_ij * dot(v_ij, gW_ij));
                     dhdt += (m_j / rho_j) * dot(v_ij, gW_i);
                 }
             }
@@ -127,7 +127,7 @@ kernel void acceleration(device float3* positions,
     dhdts[ind] = dhdt;
 
     // Time stepping criterion.
-    float goaldt = 2.0f * CFL * h_i / v_sigi;
+    float goaldt = 2.0f * CFL * GAMMA * h_i / v_sigi;
     int r = 0;
     float dtCandidate = DT0;
     while (dtCandidate > goaldt && r < R_MAX) {

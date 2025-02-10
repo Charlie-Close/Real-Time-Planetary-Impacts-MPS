@@ -38,7 +38,7 @@ kernel void step(device float3* positions,
     float h_i = h[index];
     float h1 = 1 / h_i;
     float dhdt = dhdts[index];
-    h[index] *= exp(h1 * dhdt * dt);
+    h[index] = min(h_i * exp(h1 * dhdt * dt), MAX_SMOOTHING_LENGTH);
     densities[index] *= exp(-3 * h1 * dhdt * dt);
     velocities[index] = velocity + dt * acceleration;
     internalEnergies[index] += dt * dInternalEnergy[index];

@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		5B3093942D58BE2200D18BF6 /* density.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B3093922D58BE2200D18BF6 /* density.metal */; };
+		5B30939C2D593BCE00D18BF6 /* lodepng.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B30939B2D593BCE00D18BF6 /* lodepng.cpp */; };
+		5B30939F2D5A31D300D18BF6 /* Headless.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B30939E2D5A31D300D18BF6 /* Headless.cpp */; };
 		5B49053E2D53CCDC0038674B /* M2L.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B49053D2D53CCDC0038674B /* M2L.metal */; };
 		5B4905402D53CD910038674B /* accept.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B49053F2D53CD910038674B /* accept.metal */; };
 		5B4905422D53CEEB0038674B /* derivatives.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B4905412D53CEEB0038674B /* derivatives.metal */; };
@@ -68,6 +70,11 @@
 
 /* Begin PBXFileReference section */
 		5B3093922D58BE2200D18BF6 /* density.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = density.metal; sourceTree = "<group>"; };
+		5B30939A2D593BAA00D18BF6 /* lodepng.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lodepng.h; sourceTree = "<group>"; };
+		5B30939B2D593BCE00D18BF6 /* lodepng.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = lodepng.cpp; sourceTree = "<group>"; };
+		5B30939D2D5A31D300D18BF6 /* Headless.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Headless.hpp; sourceTree = "<group>"; };
+		5B30939E2D5A31D300D18BF6 /* Headless.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Headless.cpp; sourceTree = "<group>"; };
+		5B3093A02D5A8D6100D18BF6 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		5B30EE052D564DF600BAD748 /* helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = helpers.h; sourceTree = "<group>"; };
 		5B45357B2D4F7AB7009F35F7 /* morton.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = morton.h; sourceTree = "<group>"; };
 		5B49053D2D53CCDC0038674B /* M2L.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = M2L.metal; sourceTree = "<group>"; };
@@ -78,7 +85,6 @@
 		5B4905472D53CFCD0038674B /* P2M.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = P2M.metal; sourceTree = "<group>"; };
 		5B4905492D53D0070038674B /* helpers.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = helpers.metal; sourceTree = "<group>"; };
 		5B49054B2D53D27A0038674B /* L2L.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = L2L.metal; sourceTree = "<group>"; };
-		5B49054D2D53F1080038674B /* demo_impactor_n60.hdf5 */ = {isa = PBXFileReference; lastKnownFileType = file; path = demo_impactor_n60.hdf5; sourceTree = "<group>"; };
 		5B49054E2D53F2890038674B /* demo_impact_n60.hdf5 */ = {isa = PBXFileReference; lastKnownFileType = file; path = demo_impact_n60.hdf5; sourceTree = "<group>"; };
 		5B4ED79F2D4BBE3F00F0505B /* demo_impact_n50.hdf5 */ = {isa = PBXFileReference; lastKnownFileType = file; path = demo_impact_n50.hdf5; sourceTree = "<group>"; };
 		5B51FEF62D4D4E780085BF37 /* sort.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = sort.metal; sourceTree = "<group>"; };
@@ -183,6 +189,7 @@
 		5B5C9BBD2D411FEE003302F2 /* SPH */ = {
 			isa = PBXGroup;
 			children = (
+				5B3093A02D5A8D6100D18BF6 /* .gitignore */,
 				5B5216692D47E107003F7B44 /* ANEOS */,
 				5B5C9C1A2D41611D003302F2 /* octree */,
 				5B5C9BF12D41267F003302F2 /* Compute */,
@@ -193,7 +200,6 @@
 				5B5C9BEF2D412674003302F2 /* hdfHandler */,
 				5B4ED79F2D4BBE3F00F0505B /* demo_impact_n50.hdf5 */,
 				5B49054E2D53F2890038674B /* demo_impact_n60.hdf5 */,
-				5B49054D2D53F1080038674B /* demo_impactor_n60.hdf5 */,
 				5B5C9C152D414145003302F2 /* demo_impact_n40.hdf5 */,
 				5B52166D2D47E1B6003F7B44 /* ANEOS_forsterite_S19.txt */,
 				5B52166E2D4A5170003F7B44 /* ANEOS_Fe85Si15_S20.txt */,
@@ -262,6 +268,10 @@
 				5B5C9BD72D4120ED003302F2 /* ViewAdapter */,
 				5B5C9BD82D4120ED003302F2 /* Render.hpp */,
 				5B5C9BD92D4120ED003302F2 /* Render.cpp */,
+				5B30939A2D593BAA00D18BF6 /* lodepng.h */,
+				5B30939B2D593BCE00D18BF6 /* lodepng.cpp */,
+				5B30939D2D5A31D300D18BF6 /* Headless.hpp */,
+				5B30939E2D5A31D300D18BF6 /* Headless.cpp */,
 			);
 			path = Rendering;
 			sourceTree = "<group>";
@@ -424,6 +434,7 @@
 				5B5C9BDC2D4120ED003302F2 /* Render.cpp in Sources */,
 				5B5C9BDD2D4120ED003302F2 /* ViewPass.m in Sources */,
 				5B6086A12D43D3D90037C449 /* ParticleMesh.cpp in Sources */,
+				5B30939F2D5A31D300D18BF6 /* Headless.cpp in Sources */,
 				5B4905462D53CFA50038674B /* L2P.metal in Sources */,
 				5B5C9BF42D4126B1003302F2 /* Compute.cpp in Sources */,
 				5B5C9BEC2D4124AA003302F2 /* render.metal in Sources */,
@@ -442,6 +453,7 @@
 				5B4905442D53CF5B0038674B /* M2M.metal in Sources */,
 				5B3093942D58BE2200D18BF6 /* density.metal in Sources */,
 				5B49054C2D53D27A0038674B /* L2L.metal in Sources */,
+				5B30939C2D593BCE00D18BF6 /* lodepng.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

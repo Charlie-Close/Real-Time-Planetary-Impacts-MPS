@@ -58,7 +58,6 @@ static inline void localToLeaf(device int* treeStructure, device bool* active, d
         float3 x_i = positions[particlePointer];
         float3 particleAcceleration = L2P(local, x_i);
                     
-        float h_i = 0.05;
         for (int j = start; j < end; j++) {
             if (i == j) {
                 continue;
@@ -74,7 +73,7 @@ static inline void localToLeaf(device int* treeStructure, device bool* active, d
             }
 
             const float3 r_hat = x_ij / r;
-            particleAcceleration -= (m_j * dphi_dr(x_ij, h_i)) * r_hat;
+            particleAcceleration -= (m_j * dphi_dr(x_ij, GRAVITY_SMOOTHING_LENGTH)) * r_hat;
         }
         accelerations[particlePointer] = G * particleAcceleration;
         gravNorm[particlePointer] = length(particleAcceleration);

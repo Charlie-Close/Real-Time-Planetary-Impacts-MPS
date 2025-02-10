@@ -11,35 +11,37 @@
 // Hydro
 #define VISCOSITY_ALPHA 1.5f
 #define DENSITY_ETA .005f // half a percent error
-#define MAX_SMOOTHING_LENGTH .5f
+#define MAX_SMOOTHING_LENGTH 1.f
 #define MAX_DENSITY_NR_ITTERATIONS 50
 #define N_NEIGHBOURS_ESTIM 128 //Estimate number of neighbours. Used for caching on density pass. If too small, can't use cache.
+#define RESOLUTION_ETA 1.2348
 
 // EOS
 #define ANEOS_TEXTURE_RESOLUTION 2048
 #define ANEOS_MIN_RHO 1e-6
-#define ANEOS_MAX_RHO 2.98e-2
+#define ANEOS_MAX_RHO 1
 #define ANEOS_MIN_U 1e-10
-#define ANEOS_MAX_U 8.8e-2
+#define ANEOS_MAX_U 1
 
 // Time stepping
-#define CFL .5f
+#define CFL .2f
 #define DT0 32.f
-#define R_MAX 8
+#define R_MAX 16
 #define DT_MIN1 (DT0 / (1 << R_MAX))
 #define DT_MIN 1 / DT_MIN1
-#define STEPS_PER_FRAME 2
+#define STEPS_PER_FRAME 1
+#define GAMMA 1.825742
 
 // Gravity
 #define GRAVITY_ETA .005f // half a percent error
 #define P 2
 #define N_EXPANSION_TERMS ((P+1)*(P+2)*(P+3)/6)
-#define MAX_TREE_DEPTH 6
-#define GRAVITY_SMOOTHING_LENGTH 0.1
+#define MAX_TREE_DEPTH 7
+#define GRAVITY_SMOOTHING_LENGTH 0.04
 #define GRAVITY_MAX_RECURSION 1
 #define MAX_UNCHECKED_POINTERS 1024
 #define MAX_CHILDREN_IN_LEAF 4
-#define EXTRA_MEMORY_MULTIPLIER 1.2 // When claiming memory for an octree, claim some extra so if our tree goes, we don't need to reclaim
+#define EXTRA_MEMORY_MULTIPLIER 1.2 // When claiming memory for an octree, claim some extra so if our tree grows, we don't need to reclaim
 
 // Cells and sorting
 #define CELL_WIDTH 0.18f
@@ -61,7 +63,9 @@
 #define STARTING_POSITION 305, 315, 175
 #define STARTING_PITCH 0
 #define STARTING_YAW 80
-#define DENSITY_CUTOFF 0.005
-
+#define DENSITY_CUTOFF 0.01
+#define SNAPSHOT_RESOLUTION 1024
+#define HEADLESS false
+#define HEADLESS_ITTERATION_RATE_REFRESH 32
 
 #endif /* Parameters_h */

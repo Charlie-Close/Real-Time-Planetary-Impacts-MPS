@@ -11,6 +11,7 @@
 #include "octree.hpp"
 #include "ANEOS.hpp"
 #include <thread>
+#include "lodepng.h"
 
 // -------------------------------- //
 //                                  //
@@ -124,9 +125,10 @@ void Compute::buildBuffers(MTL::Device* device, MTL::CommandQueue *commandQueue)
     _gravAbs = device->newBuffer(sizeof(float) * nParticles, MTL::ResourceStorageModePrivate);
     _tree = nullptr;
     _nextActiveTime = device->newBuffer(sizeof(uint) * nParticles, MTL::ResourceStorageModePrivate);
-    _globalTime = device->newBuffer(sizeof(uint) * nParticles, MTL::ResourceStorageModePrivate);
+    _globalTime = device->newBuffer(sizeof(int) * nParticles, MTL::ResourceStorageModeShared);
     _dhdt = device->newBuffer(sizeof(float) * nParticles, MTL::ResourceStorageModePrivate);
-
+    _snapshot = device->newBuffer(sizeof(int) * SNAPSHOT_RESOLUTION * SNAPSHOT_RESOLUTION, MTL::ResourceStorageModeShared);
+    _blank = device->newBuffer(sizeof(int) * SNAPSHOT_RESOLUTION * SNAPSHOT_RESOLUTION, MTL::ResourceStorageModeShared);
 }
 
 void Compute::buildShaders(MTL::Device* device) {
@@ -147,6 +149,8 @@ void Compute::buildShaders(MTL::Device* device) {
     MTL::Function* sortFunction = defaultLibrary->newFunction(NS::String::string("sort", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* initFunction = defaultLibrary->newFunction(NS::String::string("initialise", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* fcpFunction = defaultLibrary->newFunction(NS::String::string("findCellPositions", NS::StringEncoding::UTF8StringEncoding));
+    MTL::Function* drawFunction = defaultLibrary->newFunction(NS::String::string("drawToSnapshot", NS::StringEncoding::UTF8StringEncoding));
+
 
 
     
@@ -163,7 +167,7 @@ void Compute::buildShaders(MTL::Device* device) {
     _sortPSO = device->newComputePipelineState(sortFunction, error);
     _initialisePSO = device->newComputePipelineState(initFunction, error);
     _findPosPSO = device->newComputePipelineState(fcpFunction, error);
-
+    _drawSnapshotPSO = device->newComputePipelineState(drawFunction, error);
 }
 
 // -------------------------------- //
@@ -389,6 +393,60 @@ void Compute::encodeCommand(MTL::ComputeCommandEncoder* computeEncoder, MTL::Com
 }
 
 
+void Compute::drawSnapshot(MTL::CommandBuffer* commandBuffer) {
+    MTL::BlitCommandEncoder* blitEncoder = commandBuffer->blitCommandEncoder();
+    blitEncoder->copyFromBuffer(_blank, 0, _snapshot, 0, SNAPSHOT_RESOLUTION * SNAPSHOT_RESOLUTION * sizeof(int));
+    blitEncoder->endEncoding();
+    
+    // Start a compute pass.
+    MTL::ComputeCommandEncoder* computeEncoder = commandBuffer->computeCommandEncoder();
+    assert(computeEncoder != nil);
+    
+    computeEncoder->setBuffer(positionBuffer, 0, 0);
+    computeEncoder->setBuffer(materialIdBuffer, 0, 1);
+    computeEncoder->setBuffer(_snapshot, 0, 2);
+
+    encodeCommand(computeEncoder, _drawSnapshotPSO, nParticles);
+
+    //  End the compute pass.
+    computeEncoder->endEncoding();
+    
+    
+    int* globalTime = static_cast<int*>(_globalTime->contents());
+    float floatTime = (*globalTime) * DT_MIN1;
+    
+    if (floatTime > nextSnapshot) {
+        int* data = static_cast<int*>(_snapshot->contents());
+        
+        std::vector<std::uint8_t> dataIn(4 * SNAPSHOT_RESOLUTION * SNAPSHOT_RESOLUTION);
+        std::vector<std::uint8_t> encodedData;
+        
+        for (int i = 0; i < SNAPSHOT_RESOLUTION * SNAPSHOT_RESOLUTION; i++) {
+            if (data[i] == 402) {
+                dataIn[i * 4] = 160;
+                dataIn[i * 4 + 1] = 160;
+                dataIn[i * 4 + 2] = 160;
+                dataIn[i * 4 + 3] = 255;
+            } else if (data[i] == 400) {
+                dataIn[i * 4] = 255;
+                dataIn[i * 4 + 1] = 100;
+                dataIn[i * 4 + 2] = 0;
+                dataIn[i * 4 + 3] = 255;
+            } else {
+                dataIn[i * 4] = 255;
+                dataIn[i * 4 + 1] = 255;
+                dataIn[i * 4 + 2] = 255;
+                dataIn[i * 4 + 3] = 255;
+            }
+        }
+        
+        lodepng::encode(encodedData, dataIn, SNAPSHOT_RESOLUTION, SNAPSHOT_RESOLUTION);
+        lodepng::save_file(encodedData, "snapshot_" + std::to_string(nextSnapshot / 1000) + ".png");
+        
+        nextSnapshot += 1000;
+    }
+}
+
 // -------------------------------- //
 //                                  //
 //          Octree Stuff            //
@@ -400,6 +458,7 @@ void Compute::updateOctreeBuffer(MTL::Device* device) {
         return;
     }
     
+    treeLevels.clear();
     treeLevels = treeLevelsTemp;
     
     long nodeValuesSize = nodeValues;
@@ -418,6 +477,9 @@ void Compute::updateOctreeBuffer(MTL::Device* device) {
     _tree->release();
     _tree = _treeTmp;
     
+    for (int i = 0; i < _treeLevelBuffers.size(); i++) {
+        _treeLevelBuffers[i]->release();
+    }
     _treeLevelBuffers.clear();
     long maxSize = 0;
     for (int i = 0; i < treeLevels.size(); i++) {

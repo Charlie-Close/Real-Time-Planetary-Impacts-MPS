@@ -52,7 +52,7 @@ static inline float W(float r, float h1) {
 static inline float3 gradW(float3 x_ij, float r, float r1, float h1) {
     float q = r * h1;
     
-    if (q > 2.f or q < 1e-8) {
+    if (q > 2.f or q < 1e-12) {
         return { 0, 0, 0 };
     }
     

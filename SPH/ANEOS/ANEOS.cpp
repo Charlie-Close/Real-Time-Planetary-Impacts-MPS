@@ -139,7 +139,7 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
     for (int rho_i = 0; rho_i < resolution; rho_i++) {
         // Find which density indexes we are between
         float rho = table.rho[rho_i];
-        while (rho > rhoTemp[rhoTi + 1]) {
+        while (rho > rhoTemp[rhoTi + 1] and rhoTi < numRho - 2) {
             rhoTi++;
         }
         // Get the interpolation factors (L is lower, H is higher)
@@ -152,10 +152,10 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
         for (int u_i = 0; u_i < resolution; u_i++) {
             // Find which internal energy indices we are between for both the lower and higher density
             float u = table.u[u_i];
-            while (u > uTemp[rhoTi][ulTi + 1]) {
+            while (u > uTemp[rhoTi][ulTi + 1] and ulTi < numT - 2) {
                 ulTi++;
             }
-            while (u > uTemp[rhoTi + 1][uhTi + 1]) {
+            while (u > uTemp[rhoTi + 1][uhTi + 1] and ulTi < numT - 2) {
                 uhTi++;
             }
             

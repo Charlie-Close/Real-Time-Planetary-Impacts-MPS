@@ -48,6 +48,7 @@ public:
     void accelerationPass(MTL::CommandBuffer* commandBuffer);
     void stepPass(MTL::CommandBuffer* commandBuffer);
     void sort(MTL::CommandBuffer* commandBuffer);
+    void drawSnapshot(MTL::CommandBuffer* commandBuffer);
 
 
     // Public buffers (as used by other shaders)
@@ -78,6 +79,8 @@ private:
     int nBlocks;
     int cellsPerDim;
     float cellSize;
+    
+    int nextSnapshot = 0;
 
     // Pipeline State Objects
     // Sorting algorithm
@@ -95,6 +98,8 @@ private:
     MTL::ComputePipelineState* _densityPSO;
     MTL::ComputePipelineState* _accelerationPSO;
     MTL::ComputePipelineState* _mStepPSO;
+    // Snapshot drawing
+    MTL::ComputePipelineState* _drawSnapshotPSO;
 
     // Buffers
     MTL::Buffer* _velocityBuffer;
@@ -138,6 +143,8 @@ private:
     // ANEOS textures
     MTL::Texture* _forsterite;
     MTL::Texture* _Fe85Si15;
+    MTL::Buffer* _snapshot;
+    MTL::Buffer* _blank;
 };
 
 #endif /* Compute_hpp */
