@@ -65,6 +65,6 @@ During the up pass of gravity, a leaf is labeled inactive if all of it's particl
 
 ## Performance
 
-A simulation with 10^5 particles runs at roughly 20 FPS on my macbook pro with an M2 Max with 2 timesteps per frame.
+A simulation with 10^5 particles runs at roughly 30 FPS on my macbook pro with an M2 Max with 2 timesteps per frame.
 
    
