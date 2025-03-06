@@ -46,7 +46,6 @@ float D_soft_3(const float u) {
 }
 
 float D_soft_4(const float u) {
-
     /* -315u^4 + 720u^3 - 420u^2 */
     float phi = -315.f * u + 720.f;
     phi = phi * u - 420.f;
@@ -54,6 +53,15 @@ float D_soft_4(const float u) {
     phi = phi * u;
 
     return phi;
+}
+
+float D_soft_5(const float u) {
+  /* -315u^3 + 420u */
+  float phi = -315.f * u;
+  phi = phi * u + 420.f;
+  phi = phi * u;
+
+  return phi;
 }
 
 Derivatives derivatives(float3 vec, float eps) {
@@ -66,6 +74,9 @@ Derivatives derivatives(float3 vec, float eps) {
 #endif
 #if P > 2
     float Dt_4;
+#endif
+#if P > 3
+    float Dt_5;
 #endif
     float r2 = length_squared(vec);
     float r = sqrt(r2);
@@ -89,6 +100,10 @@ Derivatives derivatives(float3 vec, float eps) {
         const float eps_inv4 = eps_inv3 * eps_inv;
         Dt_4 = eps_inv4 * D_soft_4(u);
 #endif
+#if P > 3
+        const float eps_inv5 = eps_inv4 * eps_inv;
+        Dt_5 = eps_inv5 * D_soft_5(u);
+#endif
     } else {
         Dt_1 = r_inv; /* 1 / r */
 #if P > 0
@@ -100,57 +115,78 @@ Derivatives derivatives(float3 vec, float eps) {
 #if P > 2
         Dt_4 = -5.f * Dt_3 * r_inv; /* -15 / r^4 */
 #endif
+#if P > 3
+        Dt_5 = -7.f * Dt_4 * r_inv; /* 105 / r^5 */
+#endif
     }
     
 #if P > 0
-    const float rx_r = vec.x * r_inv;
-    const float ry_r = vec.y * r_inv;
-    const float rz_r = vec.z * r_inv;
+    const float3 r_r = vec * r_inv;
 #endif
 #if P > 1
-    const float rx_r2 = rx_r * rx_r;
-    const float ry_r2 = ry_r * ry_r;
-    const float rz_r2 = rz_r * rz_r;
+    const float3 r_r2 = r_r * r_r;
 #endif
 #if P > 2
-    const float rx_r3 = rx_r2 * rx_r;
-    const float ry_r3 = ry_r2 * ry_r;
-    const float rz_r3 = rz_r2 * rz_r;
+    const float3 r_r3 = r_r2 * r_r;
+#endif
+#if P > 3
+    const float3 r_r4 = r_r3 * r_r;
 #endif
     
     Derivatives dev;
     
     dev.expansion[M] = Dt_1;
 #if P > 0
-    dev.expansion[X] = rx_r * Dt_2;
-    dev.expansion[Y] = ry_r * Dt_2;
-    dev.expansion[Z] = rz_r * Dt_2;
+    dev.expansion[X] = r_r.x * Dt_2;
+    dev.expansion[Y] = r_r.y * Dt_2;
+    dev.expansion[Z] = r_r.z * Dt_2;
 #endif
 #if P > 1
     Dt_2 *= r_inv;
-    
-    dev.expansion[XX] = rx_r2 * Dt_3 + Dt_2;
-    dev.expansion[XY] = rx_r * ry_r * Dt_3;
-    dev.expansion[XZ] = rx_r * rz_r * Dt_3;
-    dev.expansion[YY] = ry_r2 * Dt_3 + Dt_2;
-    dev.expansion[YZ] = ry_r * rz_r * Dt_3;
-    dev.expansion[ZZ] = rz_r2 * Dt_3 + Dt_2;
+
+    dev.expansion[XX] = r_r2.x * Dt_3 + Dt_2;
+    dev.expansion[XY] = r_r.x * r_r.y * Dt_3;
+    dev.expansion[XZ] = r_r.x * r_r.z * Dt_3;
+    dev.expansion[YY] = r_r2.y * Dt_3 + Dt_2;
+    dev.expansion[YZ] = r_r.y * r_r.z * Dt_3;
+    dev.expansion[ZZ] = r_r2.z * Dt_3 + Dt_2;
     
 #endif
 #if P > 2
     Dt_3 *= r_inv;
 
     /* 3rd order derivatives */
-    dev.expansion[XXX] = rx_r3 * Dt_4 + 3.f * rx_r * Dt_3;
-    dev.expansion[YYY] = ry_r3 * Dt_4 + 3.f * ry_r * Dt_3;
-    dev.expansion[ZZZ] = rz_r3 * Dt_4 + 3.f * rz_r * Dt_3;
-    dev.expansion[XXY] = rx_r2 * ry_r * Dt_4 + ry_r * Dt_3;
-    dev.expansion[XXZ] = rx_r2 * rz_r * Dt_4 + rz_r * Dt_3;
-    dev.expansion[XYY] = ry_r2 * rx_r * Dt_4 + rx_r * Dt_3;
-    dev.expansion[YYZ] = ry_r2 * rz_r * Dt_4 + rz_r * Dt_3;
-    dev.expansion[XZZ] = rz_r2 * rx_r * Dt_4 + rx_r * Dt_3;
-    dev.expansion[YZZ] = rz_r2 * ry_r * Dt_4 + ry_r * Dt_3;
-    dev.expansion[XYZ] = rx_r * ry_r * rz_r * Dt_4;
+    dev.expansion[XXX] = r_r3.x * Dt_4 + 3.f * r_r.x * Dt_3;
+    dev.expansion[YYY] = r_r3.y * Dt_4 + 3.f * r_r.y * Dt_3;
+    dev.expansion[ZZZ] = r_r3.z * Dt_4 + 3.f * r_r.z * Dt_3;
+    dev.expansion[XXY] = r_r2.x * r_r.y * Dt_4 + r_r.y * Dt_3;
+    dev.expansion[XXZ] = r_r2.x * r_r.z * Dt_4 + r_r.z * Dt_3;
+    dev.expansion[XYY] = r_r2.y * r_r.x * Dt_4 + r_r.x * Dt_3;
+    dev.expansion[YYZ] = r_r2.y * r_r.z * Dt_4 + r_r.z * Dt_3;
+    dev.expansion[XZZ] = r_r2.z * r_r.x * Dt_4 + r_r.x * Dt_3;
+    dev.expansion[YZZ] = r_r2.z * r_r.y * Dt_4 + r_r.y * Dt_3;
+    dev.expansion[XYZ] = r_r.x * r_r.y * r_r.z * Dt_4;
+#endif
+#if P > 3
+      Dt_3 *= r_inv;
+      Dt_4 *= r_inv;
+
+      /* 4th order derivatives */
+      dev.expansion[XXXX] = r_r4.x * Dt_5 + 6.f * r_r2.x * Dt_4 + 3.f * Dt_3;
+      dev.expansion[YYYY] = r_r4.y * Dt_5 + 6.f * r_r2.y * Dt_4 + 3.f * Dt_3;
+      dev.expansion[ZZZZ] = r_r4.z * Dt_5 + 6.f * r_r2.z * Dt_4 + 3.f * Dt_3;
+      dev.expansion[XXXY] = r_r3.x * r_r.y * Dt_5 + 3.f * r_r.x * r_r.y * Dt_4;
+      dev.expansion[XXXZ] = r_r3.x * r_r.z * Dt_5 + 3.f * r_r.x * r_r.z * Dt_4;
+      dev.expansion[XYYY] = r_r3.y * r_r.x * Dt_5 + 3.f * r_r.y * r_r.x * Dt_4;
+      dev.expansion[YYYZ] = r_r3.y * r_r.z * Dt_5 + 3.f * r_r.y * r_r.z * Dt_4;
+      dev.expansion[XZZZ] = r_r3.z * r_r.x * Dt_5 + 3.f * r_r.z * r_r.x * Dt_4;
+      dev.expansion[YZZZ] = r_r3.z * r_r.y * Dt_5 + 3.f * r_r.z * r_r.y * Dt_4;
+      dev.expansion[XXYY] = r_r2.x * r_r2.y * Dt_5 + r_r2.x * Dt_4 + r_r2.y * Dt_4 + Dt_3;
+      dev.expansion[XXZZ] = r_r2.x * r_r2.z * Dt_5 + r_r2.x * Dt_4 + r_r2.z * Dt_4 + Dt_3;
+      dev.expansion[YYZZ] = r_r2.y * r_r2.z * Dt_5 + r_r2.y * Dt_4 + r_r2.z * Dt_4 + Dt_3;
+      dev.expansion[XXYZ] = r_r2.x * r_r.y * r_r.z * Dt_5 + r_r.y * r_r.z * Dt_4;
+      dev.expansion[XYYZ] = r_r2.y * r_r.x * r_r.z * Dt_5 + r_r.x * r_r.z * Dt_4;
+      dev.expansion[XYZZ] = r_r2.z * r_r.x * r_r.y * Dt_5 + r_r.x * r_r.y * Dt_4;
 #endif
     return dev;
 }

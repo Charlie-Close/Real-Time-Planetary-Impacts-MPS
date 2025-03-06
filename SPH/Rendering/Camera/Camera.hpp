@@ -21,6 +21,7 @@ class Camera
         void handleMouseDrag(float x, float y);
     
         simd::float4x4 getMatrix();
+        simd::float3 getPosition();
     
 
     private:

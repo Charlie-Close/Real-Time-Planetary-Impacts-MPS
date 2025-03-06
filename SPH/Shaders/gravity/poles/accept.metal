@@ -33,7 +33,7 @@ bool gravity_M2L_accept(Multipole A, Multipole B) {
     /* Compute the error estimator (without the 1/M_B term that cancels out) */
     float E_BA_term = 0.f;
     for (int n = 0; n <= p; ++n) {
-    E_BA_term += binomial(p, n) * B.power[n] * integer_powf(rho_A, p - n);
+        E_BA_term += binomial_coeffs[p][n] * B.power[n] * integer_powf(rho_A, p - n);
     }
     E_BA_term *= 8.f;
     if (rho_A + rho_B > 0.f) {

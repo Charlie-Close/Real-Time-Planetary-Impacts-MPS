@@ -9,21 +9,6 @@
 #include "poles.h"
 using namespace metal;
 
-int binomial(const int n, const int k) {
-  /* Hello Pascal! Nice to meet again */
-  const int coeffs[9][9] = {
-      {1, 0, 0, 0, 0, 0, 0, 0, 0},     {1, 1, 0, 0, 0, 0, 0, 0, 0},
-      {1, 2, 1, 0, 0, 0, 0, 0, 0},     {1, 3, 3, 1, 0, 0, 0, 0, 0},
-      {1, 4, 6, 4, 1, 0, 0, 0, 0},     {1, 5, 10, 10, 5, 1, 0, 0, 0},
-      {1, 6, 15, 20, 15, 6, 1, 0, 0},  {1, 7, 21, 35, 35, 21, 7, 1, 0},
-      {1, 8, 28, 56, 70, 56, 28, 8, 1}
-
-  };
-
-  return coeffs[n][k];
-}
-
-
 float integer_powf(const float x, const unsigned int n) {
   switch (n) {
     case 0:
@@ -85,5 +70,24 @@ void addPowers(thread Multipole &mp) {
     mp.power[3] += (1 / 3) * mp.expansion[XXY] * mp.expansion[XXY];
     mp.power[3] = mp.expansion[XXX] * mp.expansion[XXX];
     mp.power[3] = sqrt(mp.power[3]);
+#endif
+#if P > 3
+    mp.power[4] = mp.expansion[ZZZZ] * mp.expansion[ZZZZ];
+    mp.power[4] += 2.500000000000000e-01 * mp.expansion[YZZZ] * mp.expansion[YZZZ];
+    mp.power[4] += 1.666666666666667e-01 * mp.expansion[YYZZ] * mp.expansion[YYZZ];
+    mp.power[4] += 2.500000000000000e-01 * mp.expansion[YYYZ] * mp.expansion[YYYZ];
+    mp.power[4] += mp.expansion[YYYY] * mp.expansion[YYYY];
+    mp.power[4] += 2.500000000000000e-01 * mp.expansion[XZZZ] * mp.expansion[XZZZ];
+    mp.power[4] += 8.333333333333333e-02 * mp.expansion[XYZZ] * mp.expansion[XYZZ];
+    mp.power[4] += 8.333333333333333e-02 * mp.expansion[XYYZ] * mp.expansion[XYYZ];
+    mp.power[4] += 2.500000000000000e-01 * mp.expansion[XYYY] * mp.expansion[XYYY];
+    mp.power[4] += 1.666666666666667e-01 * mp.expansion[XXZZ] * mp.expansion[XXZZ];
+    mp.power[4] += 8.333333333333333e-02 * mp.expansion[XXYZ] * mp.expansion[XXYZ];
+    mp.power[4] += 1.666666666666667e-01 * mp.expansion[XXYY] * mp.expansion[XXYY];
+    mp.power[4] += 2.500000000000000e-01 * mp.expansion[XXXZ] * mp.expansion[XXXZ];
+    mp.power[4] += 2.500000000000000e-01 * mp.expansion[XXXY] * mp.expansion[XXXY];
+    mp.power[4] += mp.expansion[XXXX] * mp.expansion[XXXX];
+
+    mp.power[4] = sqrt(mp.power[4]);
 #endif
 }

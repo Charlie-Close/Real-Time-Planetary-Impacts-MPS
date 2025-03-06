@@ -28,28 +28,68 @@ kernel void acceleration(device float3* positions,
                          device float* cellSize,
                          device int* cellsPerDim,
                          device bool* active,
+                         device bool* alive,
                          device int* nextActiveTime,
                          device int* globalTime,
                          device atomic_int* dt,
-                         uint index [[thread_position_in_grid]])
+                         uint index [[thread_position_in_grid]],
+                         uint localId [[thread_position_in_threadgroup]],
+                         uint threadsPerGroup [[threads_per_threadgroup]])
 {
-    int ind = cellData[index].y;
-    // If we are inactive this timestep, we skip
-    if (!active[ind]) {
+    uint ind = cellData[index].y;
+    
+    threadgroup uint tgIndexes[THREADGROUP_CACHE_SIZE];
+    threadgroup packed_float3 tgXs[THREADGROUP_CACHE_SIZE];
+    
+    for (uint i = localId; i < THREADGROUP_CACHE_SIZE; i += threadsPerGroup) {
+        tgIndexes[i] = UINT_MAX;
+    }
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    
+    if (!alive[ind]) {
         return;
     }
+    
+    int key = ind & (THREADGROUP_CACHE_SIZE - 1);
+    tgIndexes[key] = ind;
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    float3 x_i = positions[ind];
+    
+    if (tgIndexes[key] == ind) {
+        tgXs[key] = x_i;
+    }
+
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    
+    // If we are inactive this timestep, we skip
+    if (!active[ind]) {
+        int integerDt = max(nextActiveTime[ind] - (*globalTime), 1);
+        atomic_fetch_min_explicit(&(*dt), integerDt, memory_order_relaxed);
+        return;
+    }
+    
+    
+    
+    
     // Get all of our relevant terms
     float f_i = gradientTerms[ind];
     float P_i = pressures[ind];
     float rho_i = densities[ind];
     float fact_i = (f_i * P_i / (rho_i * rho_i));
-    float3 x_i = positions[ind];
     float3 v_i = velocities[ind];
     float c_i = speedsOfSound[ind];
     float h_i = h[ind];
     float B_i = balsara[ind];
     float hi1 = 1 / h_i;
     float hi2x4 = h_i * h_i * 4;
+    
+    
+    
+    
+    
+    
 
     // Accumulators
     float3 dv_dt = 0;
@@ -58,7 +98,7 @@ kernel void acceleration(device float3* positions,
     
     // Get our surrounding cells
     CellToScanRange range = setCellsToScanDynamic(x_i, *cellSize, *cellsPerDim, min(h_i, MAX_SMOOTHING_LENGTH));
-    float v_sigi = 1e-12;
+    float v_sigi = 2 * c_i;
     for (int x = range.min.x; x <= range.max.x; x++) {
         for (int y = range.min.y; y <= range.max.y; y++) {
             for (int z = range.min.z; z <= range.max.z; z++) {
@@ -72,12 +112,20 @@ kernel void acceleration(device float3* positions,
                 // For each particle within the cell
                 for (uint k = start; k < end; k++) {
                     const uint j = cellData[k].y;
-                    float3 x_j = positions[j];
+                    if (!alive[j]) {
+                        continue;
+                    }
+                    
+                    // Check threadgroup cache
+                    uint key = j & (THREADGROUP_CACHE_SIZE - 1);
+                    uint pInd = tgIndexes[key];
+                    float3 x_j = pInd == j ? tgXs[key] : positions[j];
+                    
                     float3 x_ij = x_i - x_j;
                     float r2 = length_squared(x_ij);
                     float h_j = h[j];
                     float hj2x4 = h_j * h_j * 4;
-                    if (r2 > hi2x4 and r2 > hj2x4 or r2 < 1e-12) {
+                    if ((r2 > hi2x4 and r2 > hj2x4) or r2 < 1e-12) {
                         // Cell is out of range or on top of us, skip.
                         continue;
                     }
@@ -124,7 +172,7 @@ kernel void acceleration(device float3* positions,
 
     accelerations[ind] += dv_dt;
     dInternalEnergy[ind] = du_dt;
-    dhdts[ind] = dhdt;
+    dhdts[ind] = - 0.333333333 * h_i * dhdt;
 
     // Time stepping criterion.
     float goaldt = 2.0f * CFL * GAMMA * h_i / v_sigi;

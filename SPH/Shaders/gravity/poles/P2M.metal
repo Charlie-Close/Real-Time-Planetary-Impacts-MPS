@@ -9,7 +9,7 @@
 #include <metal_stdlib>
 using namespace metal;
 
-Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float* grav, device bool* active, device int* nextActiveTime, device int* globalTime, int treePointer) {
+Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float* grav, device float* h, device bool* active, device int* nextActiveTime, device int* globalTime, int treePointer) {
     Multipole mp;
     int nParticles = treeStructure[treePointer];
     int start = treePointer + 2;
@@ -23,17 +23,21 @@ Multipole P2M(device int* treeStructure, device float* masses, device float3* po
     mp.active = false;
     mp.max = float3(-MAXFLOAT);
     mp.min = float3(MAXFLOAT);
+    mp.eta = 0;
     
     for (int i = start; i < end; i++) {
         int p = treeStructure[i];
         float p_mass = masses[p];
         float3 p_position = positions[p];
-        int isActive = (*globalTime) <= nextActiveTime[p];
+        float p_h = h[p];
+        float p_eta = min(p_h * GAMMA * PLUMBER_EQUIVALENT, GRAVITY_SMOOTHING_LENGTH);
+        int isActive = (*globalTime) >= nextActiveTime[p];
         if (!mp.active and isActive) {
             mp.active = true;
         }
         mp.max = max(mp.max, p_position);
         mp.min = min(mp.min, p_position);
+        mp.eta = max(mp.eta, p_eta);
         
         mp.expansion[M] += p_mass;
         mp.pos += p_position * p_mass;
@@ -79,6 +83,23 @@ Multipole P2M(device int* treeStructure, device float* masses, device float3* po
         mp.expansion[YZZ] -= p_mass * r.y * r.z * r.z;
         mp.expansion[ZZZ] -= p_mass * r.z * r.z * r.z;
 #endif
+#if P > 3
+        mp.expansion[XXXX] += p_mass * r.x * r.x * r.x * r.x;
+        mp.expansion[XXXY] += p_mass * r.x * r.x * r.x * r.y;
+        mp.expansion[XXXZ] += p_mass * r.x * r.x * r.x * r.z;
+        mp.expansion[XXYY] += p_mass * r.x * r.x * r.y * r.y;
+        mp.expansion[XXYZ] += p_mass * r.x * r.x * r.y * r.z;
+        mp.expansion[XXZZ] += p_mass * r.x * r.x * r.z * r.z;
+        mp.expansion[XYYY] += p_mass * r.x * r.y * r.y * r.y;
+        mp.expansion[XYYZ] += p_mass * r.x * r.y * r.y * r.z;
+        mp.expansion[XYZZ] += p_mass * r.x * r.y * r.z * r.z;
+        mp.expansion[XZZZ] += p_mass * r.x * r.z * r.z * r.z;
+        mp.expansion[YYYY] += p_mass * r.y * r.y * r.y * r.y;
+        mp.expansion[YYYZ] += p_mass * r.y * r.y * r.y * r.z;
+        mp.expansion[YYZZ] += p_mass * r.y * r.y * r.z * r.z;
+        mp.expansion[YZZZ] += p_mass * r.y * r.z * r.z * r.z;
+        mp.expansion[ZZZZ] += p_mass * r.z * r.z * r.z * r.z;
+#endif
     }
     
 #if P > 1
@@ -96,6 +117,23 @@ Multipole P2M(device int* treeStructure, device float* masses, device float3* po
     mp.expansion[XZZ] *= 0.5;
     mp.expansion[YYZ] *= 0.5;
     mp.expansion[YZZ] *= 0.5;
+#endif
+#if P > 3
+    mp.expansion[XXXX] *= 0.041666666666666667;
+    mp.expansion[YYYY] *= 0.041666666666666667;
+    mp.expansion[ZZZZ] *= 0.041666666666666667;
+    mp.expansion[XXXY] *= 0.1666666666666667;
+    mp.expansion[XXXZ] *= 0.1666666666666667;
+    mp.expansion[XYYY] *= 0.1666666666666667;
+    mp.expansion[XZZZ] *= 0.1666666666666667;
+    mp.expansion[YYYZ] *= 0.1666666666666667;
+    mp.expansion[YZZZ] *= 0.1666666666666667;
+    mp.expansion[XXYY] *= 0.25;
+    mp.expansion[XXZZ] *= 0.25;
+    mp.expansion[YYZZ] *= 0.25;
+    mp.expansion[XXYZ] *= 0.5;
+    mp.expansion[XYYZ] *= 0.5;
+    mp.expansion[XYZZ] *= 0.5;
 #endif
     
     float3 dims = mp.max - mp.min;

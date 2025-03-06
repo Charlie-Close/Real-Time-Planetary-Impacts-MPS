@@ -16,6 +16,13 @@
 #include "Parameters.h"
 #include "Headless.hpp"
 #include <iostream>
+#include <csignal>
+
+bool run = true;
+
+void handleSignal(int /*signal*/) {
+    run = false;
+}
 
 int main( int argc, char* argv[] )
 {
@@ -36,20 +43,33 @@ int main( int argc, char* argv[] )
         pAutoreleasePool->release();
     } else {
         Headless headless;
+        std::signal(SIGINT, handleSignal);
         int i = 0;
         auto start = std::chrono::high_resolution_clock::now();
-        while (true) {
+        float simTimStart = headless.getTime();
+        int framesPerCout = HEADLESS_ITTERATION_RATE_REFRESH * fmax(1, STEPS_PER_FRAME);
+        while (run) {
             headless.step();
             if (i == HEADLESS_ITTERATION_RATE_REFRESH) {
                 auto end = std::chrono::high_resolution_clock::now();
+                float simTimeEnd = headless.getTime();
                 std::chrono::duration<double> elapsed = end - start;
-                float fps = (float)HEADLESS_ITTERATION_RATE_REFRESH * STEPS_PER_FRAME / elapsed.count();
-                std::cout << "Steps Per Second: " << std::to_string(fps) << '\r' << std::flush;
+                float simElapsed = simTimeEnd - simTimStart;
+                float fps = (float)framesPerCout / elapsed.count();
+                float secsPerSecs = simElapsed / elapsed.count();
+                float dtAvg = simElapsed / framesPerCout;
+                std::cout << "Steps Per Second: " << std::to_string(fps);
+                std::cout << "\nSimulations seconds per second: " << std::to_string(secsPerSecs);
+                std::cout << "\nAverage dt: " << std::to_string(dtAvg);
+                std::cout << "\nSimulation time: " << std::to_string(simTimeEnd) << "\n" << std::endl;
                 i = 0;
                 start = std::chrono::high_resolution_clock::now();
+                simTimStart = simTimeEnd;
             }
             i++;
         }
+        std::cout << "Destroying..." << std::endl;
+        headless.~Headless();
     }
 
     return 0;

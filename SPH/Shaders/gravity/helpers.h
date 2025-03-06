@@ -44,7 +44,7 @@ static inline bool checkAndAddLocalExpansion(device int* treeStructure, device M
     return false;
 }
 
-static inline void localToLeaf(device int* treeStructure, device bool* active, device float3* positions, device float3* accelerations, device float* masses, device float* gravNorm, device Multipole* multipoles, thread Multipole& mp, thread Local& local, int treePointer, int nParticles) {
+static inline void localToLeaf(device int* treeStructure, device bool* active, device float3* positions, device float3* accelerations, device float* masses, device float* gravNorm, device float* h, device Multipole* multipoles, thread Multipole& mp, thread Local& local, int treePointer, int nParticles) {
     // Give acceleration to all child particles:
     int start = treePointer + 2;
     int end = start + nParticles;
@@ -64,16 +64,18 @@ static inline void localToLeaf(device int* treeStructure, device bool* active, d
             }
             int p_j = treeStructure[j];
             float3 x_j = positions[p_j];
-            float m_j = masses[p_j];
 
             float3 x_ij = x_i - x_j;
             const float r = fast::length(x_ij);
             if (r == 0) {
                 continue;
             }
+            float m_j = masses[p_j];
+            float h_j = h[p_j];
+            float eta_j = min(h_j * GAMMA * PLUMBER_EQUIVALENT, GRAVITY_SMOOTHING_LENGTH);
 
             const float3 r_hat = x_ij / r;
-            particleAcceleration -= (m_j * dphi_dr(x_ij, GRAVITY_SMOOTHING_LENGTH)) * r_hat;
+            particleAcceleration -= (m_j * dphi_dr(x_ij, eta_j)) * r_hat;
         }
         accelerations[particlePointer] = G * particleAcceleration;
         gravNorm[particlePointer] = length(particleAcceleration);
@@ -122,7 +124,7 @@ static inline void recursiveScan(device int* treeStructure, device Multipole* mu
     }
 }
 
-void nonRecursiveScan(device int* treeStructure, device int* unscannedIndexesOut, device Multipole* multipoles, thread Multipole& mp, thread Local& local, thread uint& outputPointer, uint maxOutputPointer, int toScan, int treePointer) {
+void nonRecursiveScan(device int* treeStructure, device int* unscannedIndexesOut, device Multipole* multipoles, thread Multipole& mp, thread Local& local, thread unsigned long& outputPointer, unsigned long maxOutputPointer, int toScan, int treePointer) {
     // If we can treat the parent as a multipole, just do that and continue
     if (checkAndAddLocalExpansion(treeStructure, multipoles, mp, local, toScan, false)) {
         return;

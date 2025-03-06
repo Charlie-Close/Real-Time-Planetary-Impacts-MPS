@@ -23,7 +23,7 @@ Renderer::Renderer( MTL::Device* pDevice, Camera* camera )
     _pCommandQueue = _pDevice->newCommandQueue();
     
     compute = new Compute(_pDevice);
-    particles = new Particles(_pDevice, compute->positionBuffer, compute->materialIdBuffer, compute->densityBuffer, compute->nParticles);
+    particles = new Particles(pDevice, compute->positionBuffer, compute->materialIdBuffer, compute->densityBuffer, compute->_massBuffer, compute->_smoothingLengthBuffer, compute->rhoGrads, compute->_cellStart, compute->_cellEnd, compute->_cellArrayi, compute->nParticles);
 
     buildBuffers();
     
@@ -36,11 +36,13 @@ Renderer::~Renderer()
     _pCameraDataBuffer->release();
     _pCommandQueue->release();
     _pDevice->release();
+    delete compute;
 }
 
 void Renderer::buildBuffers()
 {
-    _pCameraDataBuffer = _pDevice->newBuffer( sizeof(simd::float4x4), MTL::ResourceStorageModeManaged );
+    _pCameraDataBuffer = _pDevice->newBuffer( sizeof(simd::float4x4), MTL::ResourceStorageModeShared );
+    _cameraPosBuffer = _pDevice->newBuffer( sizeof(simd::float3), MTL::ResourceStorageModeShared );
 }
 
 // -------------------------------- //
@@ -51,6 +53,7 @@ void Renderer::buildBuffers()
 
 void Renderer::draw(MTK::View* pView)
 {
+    
     NS::AutoreleasePool* pPool = NS::AutoreleasePool::alloc()->init();
     MTL::CommandBuffer* pCmd = _pCommandQueue->commandBuffer();
     
@@ -63,33 +66,44 @@ void Renderer::draw(MTK::View* pView)
     
 
     // The simulation logic is in here. Can run multiple simulation steps per frame.
-    // Only attempt to update octree once (this is running on CPU, so running multiple times won't do anything.
-    compute->updateOctreeBuffer(_pDevice);
-    compute->drawSnapshot(pCmd);
     for (int i = 0; i < STEPS_PER_FRAME; i++) {
         compute->sort(pCmd);
         compute->gravitationalPass(pCmd);
+        if (_frame == 0) {
+            // First frame loop density to get smooth gradients
+            for (int j = 0; j < DENSITY_GRADIENT_SETTLING_ITTERATIONS; j++) {
+                compute->densityPass(pCmd);
+            }
+        }
         compute->densityPass(pCmd);
         compute->accelerationPass(pCmd);
         compute->stepPass(pCmd);
+        _frame++;
     }
+    
     
     // Update camera matrix
     simd::float4x4* pCameraData = reinterpret_cast<simd::float4x4*>(_pCameraDataBuffer->contents());
     *pCameraData = camera->getMatrix();
-    _pCameraDataBuffer->didModifyRange(NS::Range::Make(0, sizeof(simd::float4x4)));
+    simd::float3* cameraPosition = reinterpret_cast<simd::float3*>(_cameraPosBuffer->contents());
+    *cameraPosition = camera->getPosition();
+    
+    particles->zeroVis(pCmd);
+    particles->calculateNormals(pCmd, _cameraPosBuffer);
+    particles->setIndrBuff(pCmd);
+    particles->drawShadowMap(pCmd);
     
     // Begin render pass
     MTL::RenderPassDescriptor* pRpd = pView->currentRenderPassDescriptor();
     MTL::RenderCommandEncoder* pEnc = pCmd->renderCommandEncoder(pRpd);
-    
-    particles->draw(pEnc, _pCameraDataBuffer);
-
+    particles->draw(pEnc, _pCameraDataBuffer, _cameraPosBuffer);
     pEnc->endEncoding();
     
     pCmd->presentDrawable(pView->currentDrawable());
     pCmd->commit();
-
+    compute->organisation(_pDevice, _pCommandQueue);
+    particles->updateBuffers(compute->positionBuffer, compute->materialIdBuffer, compute->densityBuffer, compute->_massBuffer, compute->_smoothingLengthBuffer, compute->rhoGrads);
     pPool->release();
+
 }
 

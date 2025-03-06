@@ -9,97 +9,145 @@
 #define kernels_h
 
 #include <metal_stdlib>
+#include "../../Parameters.h"
 using namespace metal;
 
-constant float pi1 = 1 / M_PI_F;
 
-static inline float W(float3 x_ij, float h) {
-    float r = fast::length(x_ij);
-    float h1 = 1 / h;
-    float q = r * h1;
-    
-    if (q > 2.0) {
-        return 0;
-    }
-    
-    float fac = pi1 * h1 * h1 * h1;
-    
-    if (q > 1.0) {
-        float tmp = 2.f - q;
-        return fac * 0.25 * tmp * tmp * tmp;
-    }
-    
-    return fac * (1 - 1.5 * q * q * (1 - 0.5 * q));
-}
+
+constant float gamma1 = 1 / GAMMA;
 
 static inline float W(float r, float h1) {
-    float q = r * h1;
-    
-    if (q > 2.0) {
-        return 0;
+#ifdef WENDLAND_C2_KERNEL
+    float H1 = h1 * gamma1;
+    float u = r * H1;
+    if (u > 1.f) {
+        return 0.f;
+    }
+    float u_2 = u * u;
+    float u_3 = u_2 * u;
+    float u_4 = u_3 * u;
+    float u_5 = u_4 * u;
+    float fac = KERNEL_CONSTANT * H1 * H1 * H1;
+
+    return fac * (4 * u_5 - 15 * u_4 + 20 * u_3 - 10 * u_2 + 1);
+#else
+    // 3u3 − 3u2 + 1 / 2
+    float H1 = h1 * gamma1;
+    float u = r * H1;
+    if (u > 1.f) {
+        return 0.f;
     }
     
-    float fac = pi1 * h1 * h1 * h1;
+    float u_2 = u * u;
+    float u_3 = u_2 * u;
+    float fac = KERNEL_CONSTANT * H1 * H1 * H1;
     
-    if (q > 1.0) {
-        float tmp = 2.f - q;
-        return fac * 0.25 * tmp * tmp * tmp;
+    if (u > 0.5) {
+//        −u3 + 3u2 − 3u + 1
+        return fac * (- u_3 + 3 * u_2 - 3 * u + 1);
     }
-    
-    return fac * (1 - 1.5 * q * q * (1 - 0.5 * q));
+//    3u3 − 3u2 + 1/2
+    return fac * (3 * u_3 - 3 * u_2 + 0.5);
+
+
+#endif
 }
 
 static inline float3 gradW(float3 x_ij, float r, float r1, float h1) {
-    float q = r * h1;
-    
-    if (q > 2.f or q < 1e-12) {
+#ifdef WENDLAND_C2_KERNEL
+    float H1 = h1 * gamma1;
+    float u = r * H1;
+    if (u > 1) {
         return { 0, 0, 0 };
     }
-    
+    float u_2 = u * u;
+    float u_3 = u_2 * u;
+    float u_4 = u_3 * u;
+    float H1_2 = H1 * H1;
+    float H1_4 = H1_2 * H1_2;
+    float fac = KERNEL_CONSTANT * H1_4;
     float3 r_hat = x_ij * r1;
     
-    float fac = pi1 * h1 * h1 * h1 * h1;
-    
-    if (q > 1.f) {
-        float tmp = 2.f - q;
-        return -0.75 * fac * tmp * tmp * r_hat;
+    return fac * (20 * u_4 - 60 * u_3 + 60 * u_2 - 20 * u) * r_hat;
+#else
+    float H1 = h1 * gamma1;
+    float u = r * H1;
+    if (u > 1) {
+        return { 0, 0, 0 };
     }
+    float u_2 = u * u;
+    float H1_2 = H1 * H1;
+    float H1_4 = H1_2 * H1_2;
+    float fac = KERNEL_CONSTANT * H1_4;
+    float3 r_hat = x_ij * r1;
     
-    return 3 * fac * (0.75 * q - 1) * q  * r_hat;
+    if (u > 0.5) {
+//        −u3 + 3u2 − 3u + 1
+        return fac * (- 3 * u_2 + 6 * u - 3) * r_hat;
+    }
+//    3u3 − 3u2 + 1/2
+    return fac * (9 * u_2 - 6 * u) * r_hat;
+
+#endif
 }
 
 static inline float dW_dh(float r, float h1) {
-    float q = r * h1;
-    
-    if (q > 2.0) {
+#ifdef WENDLAND_C2_KERNEL
+    float H1 = h1 * gamma1;
+    float u = r * H1;
+    if (u > 1) {
         return 0;
     }
-    
-    float fac = - 3 * pi1 * h1 * h1 * h1 * h1;
-    
-    if (q > 1.0) {
-        return fac * (2 - 4 * q + 2.5 * q * q - 0.5 * q * q * q);
+    float u_2 = u * u;
+    float u_3 = u_2 * u;
+    float u_4 = u_3 * u;
+    float u_5 = u_4 * u;
+    float H1_2 = H1 * H1;
+    float H1_4 = H1_2 * H1_2;
+    float fac = KERNEL_CONSTANT * H1_4;
+
+    return - fac * (32 * u_5 - 105 * u_4 + 120 * u_3 - 50 * u_2 + 3);
+#else
+    float H1 = h1 * gamma1;
+    float u = r * H1;
+    if (u > 1) {
+        return 0;
     }
-    
-    return fac * (1 + 0.5 * (3 * q - 5) * q * q);
+    float u_2 = u * u;
+    float u_3 = u_2 * u;
+    float H1_2 = H1 * H1;
+    float H1_4 = H1_2 * H1_2;
+    float fac = KERNEL_CONSTANT * H1_4;
+
+    if (u > 0.5) {
+//        3f = −3u3 + 9u2 − 9u + 3
+//        uf' =  - 3 * u_3 + 6 * u_2 - 3u;
+        return - fac * ( - 6 * u_3 + 15 * u_2 - 12 * u + 3);
+    }
+//    3f = 9u3 − 9u2 + 1.5
+//    uf' = 9 * u_3 - 6 * u_2
+    return - fac * ( 18 * u_3 - 15 * u_2 + 1.5);
+
+#endif
 }
 
-static inline float dphi_dr(float3 x_ij, float h) {
-    float h1 = 1.f / min(h, 0.16);
+static inline float dphi_dr(float3 x_ij, float eta) {
+    float eta1 = 1.f / eta;
     float r = fast::length(x_ij);
-    float q = r * h1;
+    float q = r * eta1;
     
     if (q <= 1) {
-        return (h1 * h1) * ((4 / 3) * q - (6 / 5) * q * q * q + 0.5 * q * q * q * q);
+        return (eta1 * eta1) * ((4 / 3) * q - (6 / 5) * q * q * q + 0.5 * q * q * q * q);
     }
     if (q <= 2) {
         float q1 = 1.f / q;
-        return (h1 * h1) * ((8 / 3) * q - 3 * q * q + (6 / 5) * q * q * q - (1 / 6) * q * q * q * q - (1 / 15) * q1 * q1);
+        return (eta1 * eta1) * ((8 / 3) * q - 3 * q * q + (6 / 5) * q * q * q - (1 / 6) * q * q * q * q - (1 / 15) * q1 * q1);
     }
     
     float r1 = 1.f / r;
     return r1 * r1;
 }
+
 static inline float dphi_dh(float3 x_ij, float h) {
     float h1 = 1.f / min(h, 0.16);
     float r = fast::length(x_ij);

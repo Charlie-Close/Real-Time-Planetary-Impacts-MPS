@@ -27,6 +27,10 @@ simd::float4x4 Camera::getMatrix() {
     return _perspective * _view;
 }
 
+simd::float3 Camera::getPosition() {
+    return _position;
+}
+
 void Camera::move() {
     float cameraSpeed = 4.f;
     if (downKeys[0]) {

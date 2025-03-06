@@ -28,6 +28,7 @@ typedef struct {
     float power[P+1];
     float minGrav;
     bool active;
+    float eta;
 } Multipole;
 
 
@@ -40,6 +41,7 @@ typedef struct {
 class Compute {
 public:
     Compute(MTL::Device* device);
+    ~Compute();
     
     // Public functions
     void updateOctreeBuffer(MTL::Device* device);
@@ -48,13 +50,23 @@ public:
     void accelerationPass(MTL::CommandBuffer* commandBuffer);
     void stepPass(MTL::CommandBuffer* commandBuffer);
     void sort(MTL::CommandBuffer* commandBuffer);
-    void drawSnapshot(MTL::CommandBuffer* commandBuffer);
+    bool drawSnapshot(MTL::CommandQueue* commandQueue);
+    void organisation(MTL::Device* device, MTL::CommandQueue* commandQueue);
+    void saveState(MTL::Device* device, MTL::CommandQueue* commandQueue, std::string filename);
+    float getTime();
 
 
     // Public buffers (as used by other shaders)
     MTL::Buffer* positionBuffer;
     MTL::Buffer* materialIdBuffer;
     MTL::Buffer* densityBuffer;
+    MTL::Buffer* _massBuffer;
+    MTL::Buffer* _smoothingLengthBuffer;
+    MTL::Buffer* _cellArrayi;
+    MTL::Buffer* _cellArrayj;
+    MTL::Buffer* _cellStart;
+    MTL::Buffer* _cellEnd;
+    MTL::Buffer* rhoGrads;
     
     int nParticles;
 
@@ -64,21 +76,30 @@ private:
     void buildBuffers(MTL::Device* device, MTL::CommandQueue* commandQueue);
     void loadInitialConditions(MTL::Device* device, MTL::CommandQueue* commandQueue, DataStruct data);
     void updateOctreeData(MTL::Device* device);
-    void encodeCommand(MTL::ComputeCommandEncoder* computeEncoder, MTL::ComputePipelineState* command, long size);
-    
+    void encodeCommand(MTL::ComputeCommandEncoder* computeEncoder, MTL::ComputePipelineState* command, long size, int cap = 0);
+    void shuffleData(MTL::Device* device, MTL::CommandQueue* commandQueue);
+    MTL::Buffer* shuffleFloat(MTL::Device* device, MTL::CommandQueue* commandQueue, MTL::Buffer* buffer);
+    MTL::Buffer* shuffleFloat3(MTL::Device* device, MTL::CommandQueue* commandQueue, MTL::Buffer* buffer);
+    MTL::Buffer* shuffleInt(MTL::Device* device, MTL::CommandQueue* commandQueue, MTL::Buffer* buffer);
+    MTL::Buffer* shuffleBool(MTL::Device* device, MTL::CommandQueue* commandQueue, MTL::Buffer* buffer);
+    void shuffleTreeLayer(MTL::Device* device, MTL::CommandQueue* commandQueue, int layer);
+    void inverseCellParticles(MTL::Device* device, MTL::CommandQueue* commandQueue);
+
     // Octree stuff
     std::vector<std::vector<int>> treeLevels;
     std::vector<std::vector<int>> treeLevelsTemp;
     std::vector<int> octreeData;
     int nodeValues;
     bool updating = false;
-    long prevGravDataSize = 0;
+    long prevGravDataSizei = 0;
+    long prevGravDataSizej = 0;
     long prevNodeValues = 0;
     
     // Cells and sorting
     int nBlocks;
     int cellsPerDim;
     float cellSize;
+    int framesSinceLastShuffled = 0;
     
     int nextSnapshot = 0;
 
@@ -98,29 +119,30 @@ private:
     MTL::ComputePipelineState* _densityPSO;
     MTL::ComputePipelineState* _accelerationPSO;
     MTL::ComputePipelineState* _mStepPSO;
-    // Snapshot drawing
-    MTL::ComputePipelineState* _drawSnapshotPSO;
+    // Data shuffling
+    MTL::ComputePipelineState* _shuffleFloat;
+    MTL::ComputePipelineState* _shuffleFloat3;
+    MTL::ComputePipelineState* _shuffleInt;
+    MTL::ComputePipelineState* _shuffleBool;
+    MTL::ComputePipelineState* _shuffleTree;
+    MTL::ComputePipelineState* _inverseArray;
+
 
     // Buffers
     MTL::Buffer* _velocityBuffer;
     MTL::Buffer* _accelerationBuffer;
     MTL::Buffer* _internalEnergyBuffer;
-    MTL::Buffer* _massBuffer;
     MTL::Buffer* _pressureBuffer;
-    MTL::Buffer* _smoothingLengthBuffer;
     MTL::Buffer* _gradientTermsBuffer;
+    MTL::Buffer* _balsara;
     MTL::Buffer* _speedOfSoundBuffer;
     MTL::Buffer* _dInternalEnergyBuffer;
-    MTL::Buffer* _cellArrayi;
-    MTL::Buffer* _cellArrayj;
     MTL::Buffer* _bucketHist;
     MTL::Buffer* _bucketOffset;
     MTL::Buffer* _particleOffset;
     MTL::Buffer* _ittr[SORTING_ITTERATIONS];
     MTL::Buffer* _nParticles;
     MTL::Buffer* _nBlocks;
-    MTL::Buffer* _cellStart;
-    MTL::Buffer* _cellEnd;
     MTL::Buffer* _cellSize;
     MTL::Buffer* _cellsPerDim;
     MTL::Buffer* _tree;
@@ -132,10 +154,10 @@ private:
     MTL::Buffer* _localGravi;
     MTL::Buffer* _localGravj;
     MTL::Buffer* _active;
+    MTL::Buffer* _alive;
     MTL::Buffer* _gravAbs;
     std::vector<MTL::Buffer*> _treeLevelBuffers;
     MTL::Buffer* _dt;
-    MTL::Buffer* _balsara;
     MTL::Buffer* _nextActiveTime;
     MTL::Buffer* _globalTime;
     MTL::Buffer* _dhdt;
@@ -143,8 +165,6 @@ private:
     // ANEOS textures
     MTL::Texture* _forsterite;
     MTL::Texture* _Fe85Si15;
-    MTL::Buffer* _snapshot;
-    MTL::Buffer* _blank;
 };
 
 #endif /* Compute_hpp */

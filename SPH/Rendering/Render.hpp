@@ -35,6 +35,7 @@ private:
     MTL::CommandQueue* _pCommandQueue;
     
     MTL::Buffer* _pCameraDataBuffer;
+    MTL::Buffer* _cameraPosBuffer;
     
     int _frame;
     dispatch_semaphore_t _semaphore;

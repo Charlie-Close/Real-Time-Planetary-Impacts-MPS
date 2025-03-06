@@ -11,6 +11,33 @@
 #include <iostream>
 #include "Parameters.h"
 
+std::pair<std::vector<int>, std::vector<int>> splitGroupByAxis(const simd_float3* positions, const std::vector<int>& subsetIndices, int axis) {
+    std::vector<int> lower, upper;
+
+    if (subsetIndices.empty()) {
+        return { lower, upper };
+    }
+    
+    float min = MAXFLOAT;
+    float max = - MAXFLOAT;
+    for (int pid : subsetIndices) {
+        min = fmin(min, positions[pid][axis]);
+        max = fmax(max, positions[pid][axis]);
+    }
+    
+    float center = 0.5 * (min + max);
+    
+    for (int pid : subsetIndices) {
+        if (positions[pid][axis] < center) {
+            lower.push_back(pid);
+        } else {
+            upper.push_back(pid);
+        }
+    }
+    
+    return { lower, upper };
+}
+
 int buildOctreeRecursive(
     const simd_float3* positions,
     const std::vector<int>& subsetIndices,
@@ -65,26 +92,38 @@ int buildOctreeRecursive(
     }
     treeLevels[level].push_back(nodeStart);
     
-    // Calculate mid point of all particles
-    simd_float3 center = { 0, 0, 0 };
+    // Calculate the size in each dimension:
+    simd::float3 min(MAXFLOAT);
+    simd::float3 max(-MAXFLOAT);
     for (int pid : subsetIndices) {
-        center += positions[pid];
+        min = simd::min(min, positions[pid]);
+        max = simd::max(max, positions[pid]);
     }
-    center /= subsetIndices.size();
-
-    // Distribute the subset particles into child octants
-    std::vector<std::vector<int>> childSubsets(8);
-    childSubsets.resize(8);
-
-    for (int pid : subsetIndices) {
-        simd_float3 p = positions[pid];
-        int octIndex = 0;
-        octIndex |= (p.x > center.x) ? 1 : 0;
-        octIndex |= (p.y > center.y) ? 2 : 0;
-        octIndex |= (p.z > center.z) ? 4 : 0;
-        childSubsets[octIndex].push_back(pid);
-    }
-
+    const simd::float3 size = max - min;
+    std::array<std::pair<int,float>, 3> axisSize = {{
+        {0, size.x},
+        {1, size.y},
+        {2, size.z}
+    }};
+    std::sort(axisSize.begin(), axisSize.end(),
+              [](auto &a, auto &b){ return a.second > b.second; });
+    int axisOrder[3] = {
+        axisSize[0].first,
+        axisSize[1].first,
+        axisSize[2].first
+    };
+    
+    // 4) Split in that order
+    auto [P_1, P_2] = splitGroupByAxis(positions, subsetIndices, axisOrder[0]);
+    auto [P_11, P_12] = splitGroupByAxis(positions, P_1, axisOrder[1]);
+    auto [P_21, P_22] = splitGroupByAxis(positions, P_2, axisOrder[1]);
+    auto [P_111, P_112] = splitGroupByAxis(positions, P_11, axisOrder[2]);
+    auto [P_121, P_122] = splitGroupByAxis(positions, P_12, axisOrder[2]);
+    auto [P_211, P_212] = splitGroupByAxis(positions, P_21, axisOrder[2]);
+    auto [P_221, P_222] = splitGroupByAxis(positions, P_22, axisOrder[2]);
+    
+    std::vector<int> childSubsets[8] = { P_111, P_112, P_121, P_122, P_211, P_212, P_221, P_222 };
+    
     // Recursively build each child
     for (int c = 0; c < 8; c++) {
         if (!childSubsets[c].empty()) {
@@ -104,7 +143,6 @@ int buildOctreeRecursive(
             octreeData[nodeStart + 2 + c] = -1;
         }
     }
-
     return nodeStart;
 }
 
@@ -114,9 +152,13 @@ void buildOctree(
     std::vector<int>& octreeData,
     std::vector<std::vector<int>>& treeLevels,
     int& nodeValues,
+    bool* alive,
     int maxLeafSize
 ) {
     octreeData.clear();
+    for (int i = 0; i < treeLevels.size(); i++) {
+        treeLevels[i].clear();
+    }
     treeLevels.clear();
     nodeValues = 0;
 
@@ -126,7 +168,9 @@ void buildOctree(
 
     std::vector<int> allIndices;
     for (int i = 0; i < positionCount; i++) {
-        allIndices.push_back(i);
+        if (alive[i]) {
+            allIndices.push_back(i);
+        }
     }
 
     buildOctreeRecursive(
@@ -138,4 +182,6 @@ void buildOctree(
         treeLevels,
         nodeValues
     );
+    
+    allIndices.clear();
 }

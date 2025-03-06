@@ -147,12 +147,3 @@ kernel void findCellPositions(device uint2* sortedCellParticles,
     atomic_fetch_max_explicit(&cellEnds[cell], index, memory_order_relaxed);
 }
 
-
-
-
-
-
-
-
-
-

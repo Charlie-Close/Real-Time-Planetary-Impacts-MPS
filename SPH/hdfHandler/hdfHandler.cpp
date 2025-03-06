@@ -119,11 +119,9 @@ DataStruct readHDFFile(const std::string& filepath) {
     DataStruct data;
     data.positions = readDatasetVec3("Coordinates");
     data.densities = readDatasetScalar("Densities");
-//    data.entropies = readDatasetScalar("Entropies");
     data.internalEnergy = readDatasetScalar("InternalEnergies");
     data.masses = readDatasetScalar("Masses");
     data.materialIDs = readDatasetInteger("MaterialIDs");
-//    data.potentials = readDatasetScalar("Potentials");
     data.pressures = readDatasetScalar("Pressures");
     data.smoothingLengths = readDatasetScalar("SmoothingLengths");
     data.velocities = readDatasetVec3("Velocities");
@@ -230,11 +228,9 @@ void writeHDFFile(const std::string& filepath, const DataStruct& data) {
     // Write datasets to the HDF5 file
     writeDatasetVec3("Coordinates", data.positions);
     writeDatasetScalar("Densities", data.densities);
-    writeDatasetScalar("Entropies", data.entropies);
     writeDatasetScalar("InternalEnergies", data.internalEnergy);
     writeDatasetScalar("Masses", data.masses);
     writeDatasetInteger("MaterialIDs", data.materialIDs);
-    writeDatasetScalar("Potentials", data.potentials);
     writeDatasetScalar("Pressures", data.pressures);
     writeDatasetScalar("SmoothingLengths", data.smoothingLengths);
     writeDatasetVec3("Velocities", data.velocities);

@@ -35,11 +35,12 @@
 
 kernel void upPass(device float3* positions,
                    device float* masses,
+                   device float* h,
                    device int* treeStructure,
                    device Multipole* multipoles,
                    device Local* locals,
                    device int* pointers,
-                   device uint* parentIndexes,
+                   device unsigned long* parentIndexes,
                    device float* gravNorm,
                    device bool* active,
                    device int* nextActiveTime,
@@ -57,18 +58,19 @@ kernel void upPass(device float3* positions,
     } else {
         // We are looking at a leaf node, so we sum the child particles (known in literature as P2M
         // - Particle to Multipole)
-        multipoles[dataPointer] = P2M(treeStructure, masses, positions, gravNorm, active, nextActiveTime, globalTime, treePointer);
+        multipoles[dataPointer] = P2M(treeStructure, masses, positions, gravNorm, h, active, nextActiveTime, globalTime, treePointer);
     }
 }
 
 kernel void downPass(device float3* positions,
                      device float3* accelerations,
                      device float* masses,
+                     device float* h,
                      device int* treeStructure,
                      device Multipole* multipoles,
                      device Local* locals,
                      device int* pointers,
-                     device uint* parentIndexes,
+                     device unsigned long* parentIndexes,
                      device int* unscannedIndexesIn,
                      device int* unscannedIndexesOut,
                      device float* gravNorm,
@@ -94,8 +96,8 @@ kernel void downPass(device float3* positions,
     
     // Get where we are going to store our unchecked nodes. Everytime we write to this array, we
     // increment our output pointer.
-    uint outputPointer = index * MAX_UNCHECKED_POINTERS;
-    uint maxOutputPointer = (index + 1) * MAX_UNCHECKED_POINTERS;
+    unsigned long outputPointer = index * MAX_UNCHECKED_POINTERS;
+    unsigned long maxOutputPointer = (index + 1) * MAX_UNCHECKED_POINTERS;
     
     int nParticles = treeStructure[treePointer];
     // We obviously wont check ourselves, however our children will need to check each other, so we need
@@ -106,13 +108,13 @@ kernel void downPass(device float3* positions,
     }
     
     // Where our parent will have stored it's unchecked nodes
-    uint parentIndex = parentIndexes[dataPointer];
-    uint startScan = parentIndex * MAX_UNCHECKED_POINTERS;
-    uint endScan = (parentIndex + 1) * MAX_UNCHECKED_POINTERS;
+    unsigned long parentIndex = parentIndexes[dataPointer];
+    unsigned long startScan = parentIndex * MAX_UNCHECKED_POINTERS;
+    unsigned long endScan = (parentIndex + 1) * MAX_UNCHECKED_POINTERS;
     
     // Stage 1: calculate our local expansion.
     Local local = locals[dataPointer];
-    for (uint i = startScan; i < endScan; i++) {
+    for (unsigned long i = startScan; i < endScan; i++) {
         int toScan = unscannedIndexesIn[i];
         // If is -1, we have scanned everything we need to.
         if (toScan == -1) {
@@ -138,6 +140,6 @@ kernel void downPass(device float3* positions,
     if (nParticles == 0) {
         L2L(treeStructure, multipoles, locals, mp, local, treePointer);
     } else {
-        localToLeaf(treeStructure, active, positions, accelerations, masses, gravNorm, multipoles, mp, local, treePointer, nParticles);
+        localToLeaf(treeStructure, active, positions, accelerations, masses, gravNorm, h, multipoles, mp, local, treePointer, nParticles);
     }
 }

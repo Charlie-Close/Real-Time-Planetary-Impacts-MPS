@@ -177,38 +177,38 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
 // Turns our ANEOS table into a texture.
 MTL::Texture* createRG32FloatTexture(MTL::Device* device, MTL::CommandQueue* commandQueue, const ANEOSTable& table)
 {
-    using namespace MTL;
-
-    TextureDescriptor* privateDesc = TextureDescriptor::texture2DDescriptor(
-        PixelFormatRG32Float,
+    MTL::TextureDescriptor* privateDesc = MTL::TextureDescriptor::texture2DDescriptor(
+        MTL::PixelFormatRG32Float,
         table.resolution,
         table.resolution,
         false // mipmapped
     );
-    privateDesc->setUsage(TextureUsageShaderRead);
-    privateDesc->setStorageMode(StorageModePrivate);
+    privateDesc->setUsage(MTL::TextureUsageShaderRead);
+    privateDesc->setStorageMode(MTL::StorageModePrivate);
 
-    Texture* privateTexture = device->newTexture(privateDesc);
+    MTL::Texture* privateTexture = device->newTexture(privateDesc);
     
     
-    TextureDescriptor* sharedDesc = TextureDescriptor::texture2DDescriptor(
-        PixelFormatRG32Float,
+    MTL::TextureDescriptor* sharedDesc = MTL::TextureDescriptor::texture2DDescriptor(
+        MTL::PixelFormatRG32Float,
         table.resolution,
         table.resolution,
         false // mipmapped
     );
-    sharedDesc->setUsage(TextureUsageShaderRead);
-    sharedDesc->setStorageMode(StorageModeShared);
+    sharedDesc->setUsage(MTL::TextureUsageShaderRead);
+    sharedDesc->setStorageMode(MTL::StorageModeShared);
 
-    Texture* sharedTexture = device->newTexture(sharedDesc);
+    MTL::Texture* sharedTexture = device->newTexture(sharedDesc);
 
     // fill the texture
-    Region region = Region::Make2D(0, 0, table.resolution, table.resolution);
+    MTL::Region region = MTL::Region::Make2D(0, 0, table.resolution, table.resolution);
     size_t rowBytes = static_cast<size_t>(table.resolution) * sizeof(simd_float2);
 
     sharedTexture->replaceRegion(region, 0, table.data, rowBytes);
-    
+
     copyDataToTexture(commandQueue, privateTexture, sharedTexture);
+    
+    sharedTexture->release();
 
     return privateTexture;
 }

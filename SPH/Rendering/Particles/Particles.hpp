@@ -19,8 +19,13 @@
 
 class Particles {
 public:
-    Particles(MTL::Device* _device, MTL::Buffer* particlePositions, MTL::Buffer* extraBuffer, MTL::Buffer* densityBuffer, int nParticles);
-    void draw(MTL::RenderCommandEncoder *pEnc, MTL::Buffer* cameraDataBuffer);
+    Particles(MTL::Device* _device, MTL::Buffer* particlePositions, MTL::Buffer* materialIdBuffer, MTL::Buffer* densityBuffer, MTL::Buffer* _massBuffer, MTL::Buffer* _smoothingLengthBuffer, MTL::Buffer* rhoGrads, MTL::Buffer* _cellStarts, MTL::Buffer* _cellEnds, MTL::Buffer* _cellData, int nParticles);
+    void zeroVis(MTL::CommandBuffer* cmdBuff);
+    void calculateNormals(MTL::CommandBuffer* cmdBuff, MTL::Buffer* cameraPosBuffer);
+    void setIndrBuff(MTL::CommandBuffer* cmdBuff);
+    void drawShadowMap(MTL::CommandBuffer* cmdBuffer);
+    void draw(MTL::RenderCommandEncoder *pEnc, MTL::Buffer* cameraDataBuffer, MTL::Buffer* cameraPosBuffer);
+    void updateBuffers(MTL::Buffer* particlePositions, MTL::Buffer* materialIdBuffer, MTL::Buffer* densityBuffer, MTL::Buffer* massBuffer, MTL::Buffer* smoothingLengthBuffer, MTL::Buffer* rhoGrads);
 
 
 private:
@@ -32,12 +37,18 @@ private:
     MTL::Buffer* _sphereVertexBuffer;
     MTL::Buffer* _normalBuffer;
     MTL::Buffer* _indexBuffer;
+    MTL::Buffer* _pNormalBuffer;
     
     int nSphereIndices;
     int nPoints;
 
     // Pipleline State Objects
+    MTL::RenderPipelineState* _shadowPSO;
     MTL::RenderPipelineState* _drawPSO;
+    MTL::ComputePipelineState* _visPSO;
+    MTL::ComputePipelineState* _zeroVisiblePSO;
+    MTL::ComputePipelineState* _setIndrBuffPso;
+
     
     // Depth stencil
     MTL::DepthStencilState* _depthStencilState;
@@ -46,6 +57,20 @@ private:
     MTL::Buffer* _positionBuffer;
     MTL::Buffer* _materialIdBuffer;
     MTL::Buffer* _densityBuffer;
+    MTL::Buffer* _massBuffer;
+    MTL::Buffer* _smoothingLengthBuffer;
+    MTL::Buffer* _cellStarts;
+    MTL::Buffer* _cellEnds;
+    MTL::Buffer* _cellData;
+    MTL::Buffer* _lightMatrixBuffer;
+    MTL::Buffer* _indrBuffer;
+    MTL::Buffer* _visibleCount;
+    MTL::Buffer* _instanceArray;
+    
+    // Textures
+    MTL::Texture* _shadowMap;
+    
+    MTL::RenderPassDescriptor* shadowMapPassDescriptor;
 };
 
 #endif /* Particles_hpp */

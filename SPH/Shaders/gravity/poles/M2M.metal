@@ -69,10 +69,88 @@ Multipole transformMultipole(Multipole mp, float3 r) {
                  r.x * mp.expansion[XX] /* + 0.5 * r.x * r.x * mp.expansion[];//M_100 */ +
                  0.1666666667 * r.x * r.x * r.x * mp.expansion[M];
 #endif
+#if P > 3
+    /* Shift 4th order terms (1st order mpole (all 0) commented out) */
+    newMp.expansion[ZZZZ] = mp.expansion[ZZZZ] + r.z * mp.expansion[ZZZ] +
+                 0.5 * r.z * r.z * mp.expansion[ZZ] /* + 0.1666666666666667 * r.z * r.z * r.z * mp.expansion[Z] */ +
+                 0.041666666666666667 * r.z * r.z * r.z * r.z * mp.expansion[M];
+    newMp.expansion[YZZZ] = mp.expansion[YZZZ] + r.z * mp.expansion[YZZ] +
+                 0.5 * r.z * r.z * mp.expansion[YZ] /* + 0.1666666666666667 * r.z * r.z * r.z * mp.expansion[Y] */ +
+                 r.y * mp.expansion[ZZZ] +
+                 r.y * r.z * mp.expansion[ZZ] /* + 0.5 * r.y * r.z * r.z * mp.expansion[Z] */ +
+                 0.1666666666666667 * r.y * r.z * r.z * r.z * mp.expansion[M];
+    newMp.expansion[YYZZ] = mp.expansion[YYZZ] + r.z * mp.expansion[YYZ] + 0.5 * r.z * r.z * mp.expansion[YY] +
+                 r.y * mp.expansion[YZZ] +
+                 r.y * r.z * mp.expansion[YZ] /* + 0.5 * r.y * r.z * r.z * mp.expansion[Y] */ +
+                 0.5 * r.y * r.y * mp.expansion[ZZ] /* + 0.5 * r.y * r.y * r.z * mp.expansion[Z] */ +
+                 0.25 * r.y * r.y * r.z * r.z * mp.expansion[M];
+    newMp.expansion[YYYZ] = mp.expansion[YYZ] + r.z * mp.expansion[YYY] + r.y * mp.expansion[YYZ] +
+                 r.y * r.z * mp.expansion[YY] +
+                 0.5 * r.y * r.y * mp.expansion[YZ] /* + 0.5 * r.y * r.y * r.z * mp.expansion[Y] */
+                                        /* + 0.1666666666666667 * r.y * r.y * r.y * mp.expansion[Z] */
+                 + 0.1666666666666667 * r.y * r.y * r.y * r.z * mp.expansion[M];
+    newMp.expansion[YYYY] = mp.expansion[YYYY] + r.y * mp.expansion[YYY] +
+                 0.5 * r.y * r.y * mp.expansion[YY] /* + 0.1666666666666667 * r.y * r.y * r.y * mp.expansion[Y] */ +
+                 0.041666666666666667 * r.y * r.y * r.y * r.y * mp.expansion[M];
+    newMp.expansion[XZZZ] = mp.expansion[XZZZ] + r.z * mp.expansion[XZZ] +
+                 0.5 * r.z * r.z * mp.expansion[XZ] /* + 0.1666666666666667 * r.z * r.z * r.z * mp.expansion[X] */ +
+                 r.z * mp.expansion[ZZZ] +
+                 r.x * r.z * mp.expansion[ZZ] /* + 0.5 * r.x * r.z * r.z * mp.expansion[Z] */ +
+                 0.1666666666666667 * r.x * r.z * r.z * r.z * mp.expansion[M];
+    newMp.expansion[XYZZ] = mp.expansion[XYZZ] + r.z * mp.expansion[XYZ] + 0.5 * r.z * r.z * mp.expansion[XY] +
+                 r.y * mp.expansion[XZZ] +
+                 r.y * r.z * mp.expansion[XZ] /* + 0.5 * r.y * r.z * r.z * mp.expansion[X] */ +
+                 r.z * mp.expansion[YZZ] +
+                 r.x * r.z * mp.expansion[YZ] /* + 0.5 * r.x * r.z * r.z * mp.expansion[Y] */ +
+                 r.x * r.y * mp.expansion[ZZ] /* + r.x * r.y * r.z * mp.expansion[Z] */ +
+                 0.5 * r.x * r.y * r.z * r.z * mp.expansion[M];
+    newMp.expansion[XYYZ] = mp.expansion[XYYZ] + r.z * mp.expansion[XYY] + r.y * mp.expansion[XYZ] +
+                 r.y * r.z * mp.expansion[XY] +
+                 0.5 * r.y * r.y * mp.expansion[XZ] /* + 0.5 * r.y * r.y * r.z * mp.expansion[X] */ +
+                 r.z * mp.expansion[YYZ] + r.x * r.z * mp.expansion[YY] +
+                 r.x * r.y * mp.expansion[YZ] /* + r.x * r.y * r.z * mp.expansion[Y] */
+                                        /* + 0.5 * r.x * r.y * r.y * mp.expansion[Z] */
+                 + 0.5 * r.x * r.y * r.y * r.z * mp.expansion[M];
+    newMp.expansion[XYYY] = mp.expansion[XYYY] + r.y * mp.expansion[XYY] +
+                 0.5 * r.y * r.y * mp.expansion[XY] /* + 0.1666666666666667 * r.y * r.y * r.y * mp.expansion[X] */ +
+                 r.z * mp.expansion[YYY] +
+                 r.x * r.y * mp.expansion[YY] /* + 0.5 * r.x * r.y * r.y * mp.expansion[Y] */ +
+                 0.1666666666666667 * r.x * r.y * r.y * r.y * mp.expansion[M];
+    newMp.expansion[XXZZ] = mp.expansion[XXZZ] + r.z * mp.expansion[XXZ] + 0.5 * r.z * r.z * mp.expansion[XX] +
+                 r.z * mp.expansion[XZZ] +
+                 r.x * r.z * mp.expansion[XZ] /* + 0.5 * r.x * r.z * r.z * mp.expansion[X] */ +
+                 0.5 * r.x * r.x * mp.expansion[ZZ] /* + 0.5 * r.x * r.x * r.z * mp.expansion[Z] */ +
+                 0.25 * r.x * r.x * r.z * r.z * mp.expansion[M];
+    newMp.expansion[XXYZ] = mp.expansion[XXYZ] + r.z * mp.expansion[XXY] + r.y * mp.expansion[XXZ] +
+                 r.y * r.z * mp.expansion[XX] + r.z * mp.expansion[XYZ] +
+                 r.x * r.z * mp.expansion[XY] +
+                 r.x * r.y * mp.expansion[XZ] /* + r.x * r.y * r.z * mp.expansion[X] */ +
+                 0.5 * r.x * r.x * mp.expansion[YZ] /* + 0.5 * r.x * r.x * r.z * mp.expansion[Y] */
+                                        /* + 0.5 * r.x * r.x * r.y * mp.expansion[Z] */
+                 + 0.5 * r.x * r.x * r.y * r.z * mp.expansion[M];
+    newMp.expansion[XXYY] = mp.expansion[XXYY] + r.y * mp.expansion[XXY] + 0.5 * r.y * r.y * mp.expansion[XX] +
+                 r.z * mp.expansion[XYY] +
+                 r.x * r.y * mp.expansion[XY] /* + 0.5 * r.x * r.y * r.y * mp.expansion[X] */ +
+                 0.5 * r.x * r.x * mp.expansion[YY] /* + 0.5 * r.x * r.x * r.y * mp.expansion[Y] */ +
+                 0.25 * r.x * r.x * r.y * r.y * mp.expansion[M];
+    newMp.expansion[XXXZ] = mp.expansion[XXXZ] + r.z * mp.expansion[XXX] + r.z * mp.expansion[XXZ] +
+                 r.x * r.z * mp.expansion[XX] +
+                 0.5 * r.x * r.x * mp.expansion[XZ] /* + 0.5 * r.x * r.x * r.z * mp.expansion[X] */
+                                        /* + 0.1666666666666667 * r.x * r.x * r.x * mp.expansion[Z] */
+                 + 0.1666666666666667 * r.x * r.x * r.x * r.z * mp.expansion[M];
+    newMp.expansion[XXXY] = mp.expansion[XXXY] + r.y * mp.expansion[XXX] + r.z * mp.expansion[XXY] +
+                 r.x * r.y * mp.expansion[XX] +
+                 0.5 * r.x * r.x * mp.expansion[XY] /* + 0.5 * r.x * r.x * r.y * mp.expansion[X] */
+                                        /* + 0.1666666666666667 * r.x * r.x * r.x * mp.expansion[Y] */
+                 + 0.1666666666666667 * r.x * r.x * r.x * r.y * mp.expansion[M];
+    newMp.expansion[XXXX] = mp.expansion[XXXX] + r.z * mp.expansion[XXX] +
+                 0.5 * r.x * r.x * mp.expansion[XX] /* + 0.1666666666666667 * r.x * r.x * r.x * mp.expansion[X] */ +
+                 0.041666666666666667 * r.x * r.x * r.x * r.x * mp.expansion[M];
+#endif
     return newMp;
 }
 
-Multipole M2M(device int* treeStructure, device Multipole* multipoles, device bool* active, device uint* parentIndexes, uint index, int treePointer) {
+Multipole M2M(device int* treeStructure, device Multipole* multipoles, device bool* active, device unsigned long* parentIndexes, uint index, int treePointer) {
     // If we are looking at a branch (signaled by nParticles == 0), we go through all
     // 8 child nodes twice. The first time to find our center of mass, and the second
     // to sum our children's multipoles
@@ -88,6 +166,7 @@ Multipole M2M(device int* treeStructure, device Multipole* multipoles, device bo
     float mass = 0;
     mp.max = float3(-MAXFLOAT);
     mp.min = float3(MAXFLOAT);
+    mp.eta = 0;
     
     // Get the start and end of our child pointers (8 of them starting 2 ahead of treePointer)
     int start = treePointer + 2;
@@ -108,9 +187,10 @@ Multipole M2M(device int* treeStructure, device Multipole* multipoles, device bo
         mp.minGrav = min(childMp.minGrav, mp.minGrav);
         mass += childMp.expansion[M];
         mp.pos += childMp.pos * childMp.expansion[M];
+        mp.eta = max(mp.eta, childMp.eta);
         // If at least one child is active, we are active (used to skip inactive
         // nodes in down pass)
-        if (!mp.active && childMp.active) {
+        if (!mp.active and childMp.active) {
             mp.active = true;
         }
         if (allLeaves and treeStructure[childPointer] == 0) {

@@ -16,6 +16,7 @@ void buildOctree(const simd_float3* positions,
                  std::vector<int>& octreeData,
                  std::vector<std::vector<int>>& treeLevels,
                  int& nodeValues,
+                 bool* alive,
                  int maxLeafSize = 10);
 
 #endif /* octree_hpp */
