@@ -13,8 +13,61 @@ using namespace metal;
 
 struct VertOut {
     float4 position [[position]];
+    float2 vertPos;
+    float3 right;
+    float3 up;
+    float3 viewNorm;
+    float3 rhoGradNorm;
+    float4 lightspacePos;
+    float weight;
     half3 colour;
+    half3 blackbody;
 };
+
+half3 getBlackBody(float T) {
+    // T is temperature in Kelvin
+    float t = T / 1000.0f; // scale temperature
+    float r, g, b;
+
+    if (T < 1000.0f) T = 1000.0f;    // clamp to avoid out-of-range
+    if (T > 40000.0f) T = 40000.0f;
+
+    // Red
+    if (t <= 66.0f) {
+        r = 255.0f;
+    } else {
+        float tmp = t - 60.0f;
+        tmp = 329.698727446f * pow(tmp, -0.1332047592f);
+        r = clamp(tmp, 0.0f, 255.0f);
+    }
+
+    // Green
+    if (t <= 66.0f) {
+        float tmp = t;
+        tmp = 99.4708025861f * log(tmp) - 161.1195681661f;
+        g = clamp(tmp, 0.0f, 255.0f);
+    } else {
+        float tmp = t - 60.0f;
+        tmp = 288.1221695283f * pow(tmp, -0.0755148492f);
+        g = clamp(tmp, 0.0f, 255.0f);
+    }
+
+    // Blue
+    if (t >= 66.0f) {
+        b = 255.0f;
+    } else {
+        if (t <= 19.0f) {
+            b = 0.0f;
+        } else {
+            float tmp = t - 10.0f;
+            tmp = 138.5177312231f * log(tmp) - 305.0447927307f;
+            b = clamp(tmp, 0.0f, 255.0f);
+        }
+    }
+
+    // Convert from 0-255 range to 0-1 range
+    return half3(r, g, b) / 255.0;
+}
 
 float calculateShadow(float4 positionInLightSpace, texture2d<float, access::sample> shadowMap) {
     positionInLightSpace.xyz /= positionInLightSpace.w;
@@ -26,7 +79,7 @@ float calculateShadow(float4 positionInLightSpace, texture2d<float, access::samp
     
     sampler textureSampler(mag_filter::linear, min_filter::linear, mip_filter::none, address::clamp_to_edge);
     float lightDepth = shadowMap.sample(textureSampler, lightSpaceCoord).x;
-    if (positionInLightSpace.z > lightDepth + 0.005) {
+    if (positionInLightSpace.z > lightDepth) {
         return 1.0;
     }
     return 0;
@@ -42,53 +95,81 @@ vertex VertOut vertexSphere(device const float3* vertexData [[buffer(0)]],
                             device const int* materialIds [[buffer(7)]],
                             device const float* densities [[buffer(8)]],
                             device const uint* instanceIds [[buffer(9)]],
-                            texture2d<float, access::sample> shadowMap [[texture(0)]],
+                            device const float* temperatures [[buffer(10)]],
+                            device const float* h [[buffer(11)]],
                             uint vertexId [[vertex_id]],
                             uint instInd [[instance_id]])
 {
     uint instanceId = instanceIds[instInd];
     VertOut o;
+    o.vertPos = vertexData[vertexId].xy;
     float3 lightDir = { LIGHT_DIRECTION };
     lightDir = normalize(lightDir);
-
-    float4 worldPosition = float4(vertexData[vertexId] + positions[instanceId], 1.0);
-    o.position = cameraMatrix * worldPosition;
-    float4 lightSpacePos = lightMatrix * worldPosition;
-    float shadow = calculateShadow(lightSpacePos, shadowMap);
+    float3 viewNorm = normalize(positions[instanceId] - cameraPos);
+    float3 right = normalize(cross(viewNorm, float3(0, 1, 0)));
+    float3 up = normalize(cross(viewNorm, right));
+    o.right = right;
+    o.up = up;
+    o.viewNorm = viewNorm;
     
-    if (materialIds[instanceId] == 402 or materialIds[instanceId] == 100) {
-        o.colour = half3(0.2f, 0.2f, 0.25f);
-    } else {
-        o.colour = half3(0.5f, 0.5f, 0.6f);
-    }
     
     float3 gradRho = densityGradients[instanceId];
     float gradMag = length(gradRho);
-    float weight = gradMag > 1e-12 ? clamp(1000 * gradMag, 0.f, 1.f) : 0;
-    float3 pNorm = - normalize(densityGradients[instanceId]);
-    float3 norm = normalData[vertexId];
-    float3 normal = weight == 0 ? norm : mix(norm, pNorm, weight);
-
-    float3 viewDir = normalize(worldPosition.xyz - cameraPos);
-    float3 reflectDir = reflect(-lightDir, normal);
-    float spec = 0.6f * pow(max(dot(viewDir, reflectDir), 0.0), 16);
+    float rho = densities[instanceId];
+    float weight = gradMag > 1e-12 ? clamp(1000 * (rho - 0.001), 0.f, 1.f) : 0;
+    o.weight = min(weight, .9f);
+    o.rhoGradNorm = gradRho / gradMag;
+    float size = PARTICLE_SIZE * rho * h[instanceId];
     
-    o.colour *= clamp(dot(lightDir, normal), 0.f, 1.f);
-    o.colour.r = min(o.colour.r + spec, 1.f);
-    o.colour.g = min(o.colour.g + spec, 1.f);
-    o.colour.b = min(o.colour.b + spec, 1.f);
-    o.colour *= (1 - shadow);
+    float3 vertPos = size * (vertexData[vertexId].x * right + vertexData[vertexId].y * up);
+    if (rho < 0.0005) vertPos.x = 100000;
     
-    o.colour.r = clamp(o.colour.r, half(0.01), half(1));
-    o.colour.g = clamp(o.colour.g, half(0.01), half(1));
-    o.colour.b = clamp(o.colour.b, half(0.01), half(1));
-
-
+    float4 worldPosition = float4(vertPos + positions[instanceId], 1.0);
+    o.position = cameraMatrix * worldPosition;
+    o.lightspacePos = lightMatrix * (worldPosition - 8 * float4(lightDir, 0) * size); // step in light direction to stop self shadowing
+        
+    if (materialIds[instanceId] == 402 or materialIds[instanceId] == 100) {
+        o.colour = half3(0.2f, 0.2f, 0.25f);
+    } else {
+        o.colour = half3(0.3f, 0.3f, 0.35f);
+    }
+    
+    float T = temperatures[instanceId];
+    float emmision = pow(clamp(T / 8000, 0.f, 1.f), 4);
+    o.blackbody = emmision * getBlackBody(T);
+    
     return o;
 }
 
-half4 fragment fragmentSphere(VertOut in [[stage_in]])
+half4 fragment fragmentSphere(texture2d<float, access::sample> shadowMap [[texture(0)]],
+                              VertOut in [[stage_in]])
 {
+    float r_2 = length_squared(in.vertPos);
+    if (r_2 > 1.f) {
+        discard_fragment();
+    } else {
+        float3 lightDir = { LIGHT_DIRECTION };
+        lightDir = normalize(lightDir);
+        float z = sqrt(1 - r_2);
+        float3 normal = in.vertPos.x * in.right + in.vertPos.y * in.up - z * in.viewNorm;
+        if (in.weight != 0) normal = mix(normal, in.rhoGradNorm, in.weight);
+        in.colour *= max(dot(normal, -lightDir), 0.f);
+        
+        float3 reflectDir = reflect(- lightDir, normal);
+        float spec = 0.6f * pow(max(dot(in.viewNorm, reflectDir), 0.0), 16);
+        in.colour.r = min(in.colour.r + spec, 1.f);
+        in.colour.g = min(in.colour.g + spec, 1.f);
+        in.colour.b = min(in.colour.b + spec, 1.f);
+        
+        float shadow = calculateShadow(in.lightspacePos, shadowMap);
+        in.colour *= (1 - shadow);
+        
+        in.colour += in.blackbody;
+    
+        in.colour.r = clamp(in.colour.r, half(0.01), half(1));
+        in.colour.g = clamp(in.colour.g, half(0.01), half(1));
+        in.colour.b = clamp(in.colour.b, half(0.01), half(1));
+    }
     return half4( in.colour, 1.0 );
 }
 
@@ -96,18 +177,32 @@ vertex VertOut vertexShadow(device const float3* vertexData [[buffer(0)]],
                             device const float3* positions [[buffer(1)]],
                             constant float4x4& lightMatrix [[buffer(2)]],
                             device const uint* instanceIds [[buffer(3)]],
+                            device const float* densities [[buffer(4)]],
+                            device const float* h [[buffer(5)]],
                             uint vertexId [[vertex_id]],
                             uint instInd [[instance_id]])
 {
     uint instanceId = instanceIds[instInd];
     VertOut o;
-    float4 worldPosition = float4(vertexData[vertexId] + positions[instanceId], 1.0);
+    o.vertPos = vertexData[vertexId].xy;
+    float3 ld = float3(LIGHT_DIRECTION);
+    float3 right = normalize(cross(ld, float3(0, 1, 0)));
+    float3 up = normalize(cross(ld, right));
+    float rho = densities[instanceId];
+    float size = PARTICLE_SIZE * rho * h[instanceId];
+    float3 vertPos = size * (vertexData[vertexId].x * right + vertexData[vertexId].y * up);
+    if (rho < 0.0005) vertPos.x = 100000;
+    
+    float4 worldPosition = float4(vertPos + positions[instanceId], 1.0);
     o.position = lightMatrix * worldPosition;
     return o;
 }
 
 half4 fragment fragmentShadow(VertOut in [[stage_in]])
 {
+    if (length_squared(in.vertPos) > 1.f) {
+        discard_fragment();
+    }
     return half4( in.colour, 1.0 );
 }
 
@@ -126,9 +221,6 @@ kernel void determineVisibility(device float3* positions,
                                 device float* masses,
                                 device float* h,
                                 device float3* normals,
-                                device int* cellStarts,
-                                device int* cellEnds,
-                                device uint2* cellData,
                                 device float* densities,
                                 device atomic_uint* visibleCount,
                                 device uint* instanceArray,

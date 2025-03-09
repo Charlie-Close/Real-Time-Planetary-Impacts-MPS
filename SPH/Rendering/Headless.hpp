@@ -13,6 +13,7 @@
 #include "Compute.hpp"
 #include "Particles.hpp"
 #include "Camera.hpp"
+#include "Snapshotter.hpp"
 #include <vector>
 
 class Headless
@@ -26,26 +27,21 @@ public:
 
 private:
     bool takeSnapshot();
-    bool loading = false;
-    void createRenderPassDescriptor();
-    std::pair<MTL::Texture*, MTL::Texture*> createTextures();
+    bool loading = false;    
     
     int nextSnapshot = 0;
     int _frame = 0;
     
     Compute* compute;
     Particles* particles;
+    Snapshotter** snapshotters;
     Camera* camera;
     
     MTL::Device* _device;
     MTL::CommandQueue* _commandQueue;
     
-    MTL::Texture* colourTexture;
-    MTL::Texture* depthTexture;
     MTL::Buffer* _cameraDataBuffer;
     MTL::Buffer* _cameraPosBuffer;
-    
-    MTL::RenderPassDescriptor* renderPassDescriptor;
 };
 
 #endif /* Headless_hpp */

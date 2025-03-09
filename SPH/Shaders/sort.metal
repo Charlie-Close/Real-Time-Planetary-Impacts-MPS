@@ -13,27 +13,26 @@ using namespace metal;
 // Radix sort running on a GPU. This is used for finding a particle's neighbours. Has a linear time complexity.
 
 kernel void hash(device float3* positions,
-                 device float* cellSize,
-                 device int* cellsPerDim,
                  device uint2* cellParticles,
                  uint index [[thread_position_in_grid]])
 {
     // Get the cell index of each particle and store it in an array which we will then sort.
-    float3 normalised = positions[index] / (*cellSize);
+    float3 normalised = positions[index] / CELL_WIDTH;
+    int cellsPerDimension = (1 << CELL_POWER);
     int3 pos = {
-        (int)floor(normalised.x) % (*cellsPerDim),
-        (int)floor(normalised.y) % (*cellsPerDim),
-        (int)floor(normalised.z) % (*cellsPerDim)
+        (int)floor(normalised.x) % cellsPerDimension,
+        (int)floor(normalised.y) % cellsPerDimension,
+        (int)floor(normalised.z) % cellsPerDimension
     };
     
     if (pos.x < 0) {
-        pos.x += (*cellsPerDim);
+        pos.x += cellsPerDimension;
     }
     if (pos.y < 0) {
-        pos.y += (*cellsPerDim);
+        pos.y += cellsPerDimension;
     }
     if (pos.z < 0) {
-        pos.z += (*cellsPerDim);
+        pos.z += cellsPerDimension;
     }
     
     // Interleave the bits to get a Morton index:

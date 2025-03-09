@@ -62,11 +62,8 @@ public:
     MTL::Buffer* densityBuffer;
     MTL::Buffer* _massBuffer;
     MTL::Buffer* _smoothingLengthBuffer;
-    MTL::Buffer* _cellArrayi;
-    MTL::Buffer* _cellArrayj;
-    MTL::Buffer* _cellStart;
-    MTL::Buffer* _cellEnd;
     MTL::Buffer* rhoGrads;
+    MTL::Buffer* temperature;
     
     int nParticles;
 
@@ -143,8 +140,10 @@ private:
     MTL::Buffer* _ittr[SORTING_ITTERATIONS];
     MTL::Buffer* _nParticles;
     MTL::Buffer* _nBlocks;
-    MTL::Buffer* _cellSize;
-    MTL::Buffer* _cellsPerDim;
+    MTL::Buffer* _cellArrayi;
+    MTL::Buffer* _cellArrayj;
+    MTL::Buffer* _cellStart;
+    MTL::Buffer* _cellEnd;
     MTL::Buffer* _tree;
     MTL::Buffer* _treeTmp;
     MTL::Buffer* _multipoleExpansions;
@@ -161,6 +160,7 @@ private:
     MTL::Buffer* _nextActiveTime;
     MTL::Buffer* _globalTime;
     MTL::Buffer* _dhdt;
+    MTL::Buffer* _particleIds;
 
     // ANEOS textures
     MTL::Texture* _forsterite;

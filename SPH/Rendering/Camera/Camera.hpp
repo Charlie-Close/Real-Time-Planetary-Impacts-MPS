@@ -15,10 +15,12 @@ class Camera
 {
     public:
         Camera();
+        Camera(simd::float3 position, float pitch, float yaw);
         void handleKeyDown(int key);
         void handleKeyUp(int key);
         void handleMouseDown(float x, float y);
         void handleMouseDrag(float x, float y);
+        void updateForwardVector();
     
         simd::float4x4 getMatrix();
         simd::float3 getPosition();

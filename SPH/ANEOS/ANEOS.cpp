@@ -81,7 +81,10 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
 
     // 2D arrays for storing internal energy, and the data we are going to store ( pressure, sound speed )
     float uTemp[numRho][numT];
-    simd_float2 dataTemp[numRho][numT];
+    std::vector<std::vector<simd_float3>> dataTemp(numRho);// dataTemp[numRho][numT];
+    for (int i = 0; i < numRho; i++) {
+        dataTemp[i] = std::vector<simd_float3>(numT);
+    }
     {
         int rho_i = 0;
         int t_i = 0;
@@ -105,7 +108,7 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
             float c;
             iss >> p;
             iss >> c;
-            dataTemp[rho_i][t_i] = { p * pow(10.f, -18.f), c * pow(10.f, -6.f) };
+            dataTemp[rho_i][t_i] = { p * pow(10.f, -18.f), c * pow(10.f, -6.f), tTemp[t_i] };
             
             rho_i++;
             if (rho_i == numRho) {
@@ -133,7 +136,7 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
     }
     
     // We do bilinear interpolation to resample our data
-    table.data = new simd_float2[resolution * resolution];
+    table.data = new simd_float3[resolution * resolution];
     // Index of which rho we are looking at. Avoids us having to do a binary search each time.
     int rhoTi = 0;
     for (int rho_i = 0; rho_i < resolution; rho_i++) {
@@ -178,7 +181,7 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
 MTL::Texture* createRG32FloatTexture(MTL::Device* device, MTL::CommandQueue* commandQueue, const ANEOSTable& table)
 {
     MTL::TextureDescriptor* privateDesc = MTL::TextureDescriptor::texture2DDescriptor(
-        MTL::PixelFormatRG32Float,
+        MTL::PixelFormatRGBA32Float,
         table.resolution,
         table.resolution,
         false // mipmapped
@@ -190,7 +193,7 @@ MTL::Texture* createRG32FloatTexture(MTL::Device* device, MTL::CommandQueue* com
     
     
     MTL::TextureDescriptor* sharedDesc = MTL::TextureDescriptor::texture2DDescriptor(
-        MTL::PixelFormatRG32Float,
+        MTL::PixelFormatRGBA32Float,
         table.resolution,
         table.resolution,
         false // mipmapped
@@ -202,7 +205,7 @@ MTL::Texture* createRG32FloatTexture(MTL::Device* device, MTL::CommandQueue* com
 
     // fill the texture
     MTL::Region region = MTL::Region::Make2D(0, 0, table.resolution, table.resolution);
-    size_t rowBytes = static_cast<size_t>(table.resolution) * sizeof(simd_float2);
+    size_t rowBytes = static_cast<size_t>(table.resolution) * sizeof(simd_float3);
 
     sharedTexture->replaceRegion(region, 0, table.data, rowBytes);
 

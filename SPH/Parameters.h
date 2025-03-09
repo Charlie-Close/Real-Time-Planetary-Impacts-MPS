@@ -27,13 +27,15 @@
 
 // Time stepping
 #define CFL .2f
+#define tf .2f
 #define DT0 32.f
-#define R_MAX 10
+#define R_MAX 12
 #define DT_MIN1 (DT0 / (1 << R_MAX))
 #define DT_MIN 1 / DT_MIN1
 #define STEPS_PER_FRAME 1 // Can set to 0 for headless mode to split frame up into multiple steps
 //#define WENDLAND_C2_KERNEL
 #define CUBIC_SPLINE_KERNEL
+//#define QUARTIC_SPLINE_KERNEL
 
 // Gravity
 #define GRAVITY_ETA .005f // half a percent error
@@ -42,10 +44,10 @@
 #define MAX_TREE_DEPTH 100
 #define GRAVITY_SMOOTHING_LENGTH .48f
 #define PLUMBER_EQUIVALENT 3
-#define GRAVITY_MAX_RECURSION 3
+#define GRAVITY_MAX_RECURSION 2
 #define MAX_UNCHECKED_POINTERS 512
 #define MAX_CHILDREN_IN_LEAF 8
-#define EXTRA_MEMORY_MULTIPLIER 1.1 // When claiming memory for an octree, claim some extra so if our tree grows, we don't need to reclaim
+#define EXTRA_MEMORY_MULTIPLIER 1.05 // When claiming memory for an octree, claim some extra so if our tree grows, we don't need to reclaim
 #define RED_MEMEORY_MULTIPLIER 0.8 // Scale memory down if we can
 
 // Cells and sorting
@@ -63,14 +65,15 @@
 //#define FILEPATH "demo_impact_n60_0023.hdf5"
 //#define FILEPATH "demo_impact_n65.hdf5"
 //#define FILEPATH "demo_impact_n70.hdf5"
+//#define FILEPATH "saves_n70_v2/state_5.hdf5"
 #define FILEPATH "demo_impact_n50.hdf5"
 //#define FILEPATH "demo_impact_n40.hdf5"
-// #define FILEPATH "saves/state_79.hdf5"
+// #define FILEPATH "saves_n70_v2/state_54.hdf5"
 
 // Rendering
-#define PARTICLE_SIZE 0.13
+#define PARTICLE_SIZE 150
 #define PARTICLE_SUBDIVITIONS 0
-#define STARTING_POSITION 315, 355, 125
+#define STARTING_POSITION 315, 355, 100
 #define STARTING_PITCH -10
 #define STARTING_YAW 90
 #define LIGHT_DIRECTION -1.0, -1.0, 0.5
@@ -82,8 +85,12 @@
 #define SNAPSHOT_RESOLUTION 2048
 #define HEADLESS_ITTERATION_RATE_REFRESH 16
 #define START_SNAPSHOT 0 // if running from a saved state
-#define SNAPSHOT_DIR "snapshots"
-#define SAVES_DIR "saves"
+#define SNAPSHOT_DIR "snapshots_n50"
+#define SAVES_DIR "saves_n50"
+#define N_SNAPSHOTTERS 4
+#define POSITIONS { (simd::float3){315, 355, 100}, (simd::float3){350, 355, 260}, (simd::float3){262, 362, 280}, (simd::float3){248, 306, 238} }
+#define PITCHES { -10, -30, -34, 3 }
+#define YAWS { 90, 120, 40, 48 }
 
 #ifdef __METAL_VERSION__
 #define M_1_PI 1 / M_PI_F
@@ -96,6 +103,11 @@
 #define GAMMA 1.825742
 #define KERNEL_CONSTANT 16 * M_1_PI
 #endif
+#ifdef QUARTIC_SPLINE_KERNEL
+#define GAMMA 2.018932
+#define KERNEL_CONSTANT (15625 / 512) * M_1_PI
+#endif
+
 
 #define BOX_CENTER 318
 #define BOX_SIZE 318

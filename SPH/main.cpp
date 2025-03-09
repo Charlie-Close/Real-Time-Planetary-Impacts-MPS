@@ -46,7 +46,9 @@ int main( int argc, char* argv[] )
         std::signal(SIGINT, handleSignal);
         int i = 0;
         auto start = std::chrono::high_resolution_clock::now();
+        auto const constStart = start;
         float simTimStart = headless.getTime();
+        const float constSimStart = simTimStart;
         int framesPerCout = HEADLESS_ITTERATION_RATE_REFRESH * fmax(1, STEPS_PER_FRAME);
         while (run) {
             headless.step();
@@ -54,12 +56,15 @@ int main( int argc, char* argv[] )
                 auto end = std::chrono::high_resolution_clock::now();
                 float simTimeEnd = headless.getTime();
                 std::chrono::duration<double> elapsed = end - start;
+                std::chrono::duration<double> totalElapsed = end - constStart;
                 float simElapsed = simTimeEnd - simTimStart;
                 float fps = (float)framesPerCout / elapsed.count();
                 float secsPerSecs = simElapsed / elapsed.count();
+                float avgSecsPerSecs = (simTimeEnd - constSimStart) / totalElapsed.count();
                 float dtAvg = simElapsed / framesPerCout;
                 std::cout << "Steps Per Second: " << std::to_string(fps);
                 std::cout << "\nSimulations seconds per second: " << std::to_string(secsPerSecs);
+                std::cout << "\nAverage simulations seconds per second: " << std::to_string(avgSecsPerSecs);
                 std::cout << "\nAverage dt: " << std::to_string(dtAvg);
                 std::cout << "\nSimulation time: " << std::to_string(simTimeEnd) << "\n" << std::endl;
                 i = 0;

@@ -32,16 +32,14 @@ static inline uint cellPositionToIndex(int3 pos) {
 
 static inline CellToScanRange setCellsToScanDynamic(
     float3 position,
-    float cellSize,
-    int cellsPerDim,
     float  h
 ) {
     float radius = 2.f * h;
     float3 minRange = position - float3(radius, radius, radius);
     float3 maxRange = position + float3(radius, radius, radius);
     
-    float3 minNorm = minRange / cellSize;
-    float3 maxNorm = maxRange / cellSize;
+    float3 minNorm = minRange / CELL_WIDTH;
+    float3 maxNorm = maxRange / CELL_WIDTH;
     
     CellToScanRange range;
     range.min = {

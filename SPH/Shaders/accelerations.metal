@@ -25,8 +25,6 @@ kernel void acceleration(device float3* positions,
                          device uint2* cellData,
                          device int* cellStarts,
                          device int* cellEnds,
-                         device float* cellSize,
-                         device int* cellsPerDim,
                          device bool* active,
                          device bool* alive,
                          device int* nextActiveTime,
@@ -97,7 +95,7 @@ kernel void acceleration(device float3* positions,
     float dhdt = 0;
     
     // Get our surrounding cells
-    CellToScanRange range = setCellsToScanDynamic(x_i, *cellSize, *cellsPerDim, min(h_i, MAX_SMOOTHING_LENGTH));
+    CellToScanRange range = setCellsToScanDynamic(x_i, h_i);
     float v_sigi = 2 * c_i;
     for (int x = range.min.x; x <= range.max.x; x++) {
         for (int y = range.min.y; y <= range.max.y; y++) {
@@ -170,19 +168,16 @@ kernel void acceleration(device float3* positions,
         }
     }
 
-    accelerations[ind] += dv_dt;
+    float3 a = accelerations[ind] + dv_dt;
+    accelerations[ind] = a;
     dInternalEnergy[ind] = du_dt;
     dhdts[ind] = - 0.333333333 * h_i * dhdt;
 
     // Time stepping criterion.
-    float goaldt = 2.0f * CFL * GAMMA * h_i / v_sigi;
-    int r = 0;
-    float dtCandidate = DT0;
-    while (dtCandidate > goaldt && r < R_MAX) {
-        dtCandidate *= 0.5f;
-        r++;
-    }
-    int integerDt = (int)ceil(DT_MIN * dtCandidate);
+    float dtCFL = 2.0f * CFL * GAMMA * h_i / v_sigi;
+    float dtF = tf * sqrt(h_i / length(a));
+    float goaldt = min(dtCFL, dtF);
+    int integerDt = (int)max(floor(DT_MIN * goaldt), 1.f);
     nextActiveTime[ind] = (*globalTime) + integerDt;
     // dt is an integer as atomic min doesn't seem to like floats.
     atomic_fetch_min_explicit(&(*dt), integerDt, memory_order_relaxed);

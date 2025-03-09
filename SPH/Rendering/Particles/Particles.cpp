@@ -18,7 +18,7 @@
 //                                  //
 // -------------------------------- //
 
-Particles::Particles(MTL::Device* device, MTL::Buffer* particlePositions, MTL::Buffer* materialIdBuffer, MTL::Buffer* densityBuffer, MTL::Buffer* massBuffer, MTL::Buffer* smoothingLengthBuffer, MTL::Buffer* rhoGrads, MTL::Buffer* cellStarts, MTL::Buffer* cellEnds, MTL::Buffer* cellData, int nParticles) {
+Particles::Particles(MTL::Device* device, MTL::Buffer* particlePositions, MTL::Buffer* materialIdBuffer, MTL::Buffer* densityBuffer, MTL::Buffer* massBuffer, MTL::Buffer* smoothingLengthBuffer, MTL::Buffer* rhoGrads, MTL::Buffer* temperature, int nParticles) {
     nPoints = nParticles;
     
     buildSphereVertexBuffer(device);
@@ -31,9 +31,7 @@ Particles::Particles(MTL::Device* device, MTL::Buffer* particlePositions, MTL::B
     _massBuffer = massBuffer;
     _smoothingLengthBuffer = smoothingLengthBuffer;
     _pNormalBuffer = rhoGrads;
-    _cellStarts = cellStarts;
-    _cellEnds = cellEnds;
-    _cellData = cellData;
+    _temperature = temperature;
     
     NS::Error** error = nil;
     MTL::Library* defaultLibrary = device->newDefaultLibrary();
@@ -62,13 +60,14 @@ Particles::Particles(MTL::Device* device, MTL::Buffer* particlePositions, MTL::B
     depthAttachementDescriptor->setLoadAction(MTL::LoadActionClear);
 }
 
-void Particles::updateBuffers(MTL::Buffer* particlePositions, MTL::Buffer* materialIdBuffer, MTL::Buffer* densityBuffer, MTL::Buffer* massBuffer, MTL::Buffer* smoothingLengthBuffer, MTL::Buffer* rhoGrads) {
+void Particles::updateBuffers(MTL::Buffer* particlePositions, MTL::Buffer* materialIdBuffer, MTL::Buffer* densityBuffer, MTL::Buffer* massBuffer, MTL::Buffer* smoothingLengthBuffer, MTL::Buffer* rhoGrads, MTL::Buffer* temperature) {
     _positionBuffer = particlePositions;
     _materialIdBuffer = materialIdBuffer;
     _densityBuffer = densityBuffer;
     _massBuffer = massBuffer;
     _smoothingLengthBuffer = smoothingLengthBuffer;
     _pNormalBuffer = rhoGrads;
+    _temperature = temperature;
 }
 
 // -------------------------------- //
@@ -88,7 +87,6 @@ void Particles::buildSphereVertexBuffer(MTL::Device* device) {
     _sphereVertexBuffer = device->newBuffer( vertices.size() * sizeof(simd_float3), MTL::ResourceStorageModeShared );
     _normalBuffer = device->newBuffer( normals.size() * sizeof(simd_float3), MTL::ResourceStorageModeShared );
     _indexBuffer = device->newBuffer( indices.size() * sizeof(uint16_t) * 3, MTL::ResourceStorageModeShared );
-//    _pNormalBuffer = device->newBuffer(nPoints * sizeof(simd_float3), MTL::ResourceStorageModePrivate);
     _indrBuffer = device->newBuffer(sizeof(MTL::DrawIndexedPrimitivesIndirectArguments), MTL::ResourceStorageModePrivate);
     _lightMatrixBuffer = device->newBuffer(sizeof(simd::float4x4), MTL::ResourceStorageModePrivate);
     _visibleCount = device->newBuffer(sizeof(uint), MTL::ResourceStorageModePrivate);
@@ -190,13 +188,10 @@ void Particles::calculateNormals(MTL::CommandBuffer* cmdBuff, MTL::Buffer* camer
     cmdEncoder->setBuffer(_massBuffer, 0, 1);
     cmdEncoder->setBuffer(_smoothingLengthBuffer, 0, 2);
     cmdEncoder->setBuffer(_pNormalBuffer, 0, 3);
-    cmdEncoder->setBuffer(_cellStarts, 0, 4);
-    cmdEncoder->setBuffer(_cellEnds, 0, 5);
-    cmdEncoder->setBuffer(_cellData, 0, 6);
-    cmdEncoder->setBuffer(_densityBuffer, 0, 7);
-    cmdEncoder->setBuffer(_visibleCount, 0, 8);
-    cmdEncoder->setBuffer(_instanceArray, 0, 9);
-    cmdEncoder->setBuffer(cameraPosBuffer, 0, 10);
+    cmdEncoder->setBuffer(_densityBuffer, 0, 4);
+    cmdEncoder->setBuffer(_visibleCount, 0, 5);
+    cmdEncoder->setBuffer(_instanceArray, 0, 6);
+    cmdEncoder->setBuffer(cameraPosBuffer, 0, 7);
     MTL::Size gridSize = MTL::Size(nPoints, 1, 1);
     cmdEncoder->setComputePipelineState(_visPSO);
     NS::UInteger threadGroupSize = fmin(_visPSO->maxTotalThreadsPerThreadgroup(), nPoints);
@@ -219,15 +214,8 @@ void Particles::drawShadowMap(MTL::CommandBuffer *cmdBuffer) {
     cmdEnc->setVertexBuffer(_positionBuffer, 0, 1);    // Per-instance particle positions
     cmdEnc->setVertexBuffer(_lightMatrixBuffer, 0, 2);   // Camera data buffer
     cmdEnc->setVertexBuffer(_instanceArray, 0, 3);
-    
-//    cmdEnc->drawPrimitives(MTL::PrimitiveTypePoint, (NS::UInteger)0, nPoints);
-
-//    cmdEnc->drawIndexedPrimitives
-//    cmdEnc->drawIndexedPrimitives(MTL::PrimitiveType::PrimitiveTypeTriangle,
-//                                nSphereIndices, MTL::IndexType::IndexTypeUInt16,
-//                                _indexBuffer,
-//                                0,
-//                                nPoints );
+    cmdEnc->setVertexBuffer(_densityBuffer, 0, 4);
+    cmdEnc->setVertexBuffer(_smoothingLengthBuffer, 0, 5);
     cmdEnc->drawIndexedPrimitives(MTL::PrimitiveType::PrimitiveTypeTriangle, MTL::IndexType::IndexTypeUInt16, _indexBuffer, 0, _indrBuffer, 0);
     cmdEnc->endEncoding();
 }
@@ -247,19 +235,9 @@ void Particles::draw(MTL::RenderCommandEncoder *pEnc, MTL::Buffer* cameraDataBuf
     pEnc->setVertexBuffer(_materialIdBuffer, 0, 7);       // Extra data buffer
     pEnc->setVertexBuffer(_densityBuffer, 0, 8);       // density data buffer
     pEnc->setVertexBuffer(_instanceArray, 0, 9);
-    pEnc->setVertexTexture(_shadowMap, 0);
+    pEnc->setVertexBuffer(_temperature, 0, 10);
+    pEnc->setVertexBuffer(_smoothingLengthBuffer, 0, 11);
+    pEnc->setFragmentTexture(_shadowMap, 0);
 
-    // Draw instanced spheres
-//    pEnc->drawIndexedPrimitives( MTL::PrimitiveType::PrimitiveTypeTriangle,
-//                                nSphereIndices, MTL::IndexType::IndexTypeUInt16,
-//                                _indexBuffer,
-//                                0,
-//                                nPoints );
-//    MTL::DrawIndexedPrimitivesIndirectArguments indr;
-//    uint32_t indexCount;
-//    uint32_t instanceCount;
-//    uint32_t indexStart;
-//    int32_t  baseVertex;
-//    uint32_t baseInstance;
     pEnc->drawIndexedPrimitives(MTL::PrimitiveType::PrimitiveTypeTriangle, MTL::IndexType::IndexTypeUInt16, _indexBuffer, 0, _indrBuffer, 0);
 }

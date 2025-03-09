@@ -125,7 +125,8 @@ DataStruct readHDFFile(const std::string& filepath) {
     data.pressures = readDatasetScalar("Pressures");
     data.smoothingLengths = readDatasetScalar("SmoothingLengths");
     data.velocities = readDatasetVec3("Velocities");
-
+    data.particleIds = readDatasetInteger("ParticleIDs");
+    
     // Close the group and file
     H5Gclose(group_id);
     H5Fclose(file_id);
@@ -234,15 +235,7 @@ void writeHDFFile(const std::string& filepath, const DataStruct& data) {
     writeDatasetScalar("Pressures", data.pressures);
     writeDatasetScalar("SmoothingLengths", data.smoothingLengths);
     writeDatasetVec3("Velocities", data.velocities);
-    
-    std::vector<int> particleIds(data.positions.size());
-    for (int i = 0; i < particleIds.size(); i++) {
-        particleIds[i] = i;
-    }
-    
-    writeDatasetInteger("ParticleIDs", particleIds);
-    
-    
+    writeDatasetInteger("ParticleIDs", data.particleIds);
 
     // Close the group and file
     H5Gclose(group_id);

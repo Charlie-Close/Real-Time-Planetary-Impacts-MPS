@@ -21,6 +21,21 @@ Camera::Camera() {
     _forward = simd::normalize(direction);
 }
 
+Camera::Camera(simd::float3 position, float pitch, float yaw) {
+    _position = position;
+    this->yaw = yaw;
+    this->pitch = pitch;
+    _perspective = math::makePerspective(45.f * M_PI / 180.f, 1.f, near_plane, far_plane);
+    _view = math::makeLookAt(_position, _forward, _up);
+    float yawRad = yaw * M_PI / 180.f;
+    float pitchRad = pitch * M_PI / 180.f;
+    simd_float3 direction;
+    direction.x = cos(yawRad) * cos(pitchRad);
+    direction.y = sin(pitchRad);
+    direction.z = sin(yawRad) * cos(pitchRad);
+    _forward = simd::normalize(direction);
+};
+
 simd::float4x4 Camera::getMatrix() {
     move();
     _view = math::makeLookAt(_position, _forward, _up);
@@ -73,6 +88,10 @@ void Camera::handleKeyDown(int key) {
         case 14: // E
             downKeys[5] = true;
             break;
+        case 35: // P
+            std::cout << "POSITION: " << _position.x << ", " << _position.y << ", " << _position.z << std::endl;
+            std::cout << "PITCH, YAW: " << pitch << ", " << yaw << std::endl;
+
     }
 }
 
@@ -120,6 +139,10 @@ void Camera::handleMouseDrag(float x, float y) {
     if (pitch < -89.0f)
         pitch = -89.0f;
 
+    updateForwardVector();
+}
+
+void Camera::updateForwardVector() {
     // Update front vector
     simd_float3 direction;
     float yawRad = yaw * M_PI / 180.f;

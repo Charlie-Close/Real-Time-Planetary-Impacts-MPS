@@ -34,7 +34,6 @@ Compute::Compute(MTL::Device* device) {
     buildBuffers(device, commandQueue);
     loadInitialConditions(device, commandQueue, data);
     updateOctreeData(device);
-//    updateOctreeBuffer(device);
     
     // Sort data
     MTL::CommandBuffer* cmdBuffer = commandQueue->commandBuffer();
@@ -67,10 +66,8 @@ Compute::~Compute() {
     }
     _nParticles->release();
     _nBlocks->release();
-    _cellSize->release();
+    _cellStart->release();
     _cellEnd->release();
-    _cellSize->release();
-    _cellsPerDim->release();
     _tree->release();
     _multipoleExpansions->release();
     _localExpansion->release();
@@ -132,6 +129,7 @@ void Compute::loadInitialConditions(MTL::Device* device, MTL::CommandQueue* comm
     writeDataToPrivateBuffer(device, commandQueue, _smoothingLengthBuffer, data.smoothingLengths);
     writeDataToPrivateBuffer(device, commandQueue, materialIdBuffer, data.materialIDs);
     writeDataToPrivateBuffer(device, commandQueue, _nParticles, nParticles);
+    writeDataToPrivateBuffer(device, commandQueue, _particleIds, data.particleIds);
     for (uint i = 0; i < SORTING_ITTERATIONS; i++) {
         writeDataToPrivateBuffer(device, commandQueue, _ittr[i], i);
     }
@@ -141,7 +139,13 @@ void Compute::loadInitialConditions(MTL::Device* device, MTL::CommandQueue* comm
     bool* alive = new bool[nParticles];
     for (int i = 0; i < nParticles; i++) {
         active[i] = true;
-        alive[i] = true;
+        simd::float3 pos = data.positions[i];
+        pos -= simd_float3(BOX_CENTER);
+        if (abs(pos.x) > BOX_SIZE or abs(pos.y) > BOX_SIZE or abs(pos.z) > BOX_SIZE) {
+            alive[i] = false;
+        } else {
+            alive[i] = true;
+        }
     }
     writeDataToPrivateBuffer(device, commandQueue, _active, active, nParticles);
     writeDataToPrivateBuffer(device, commandQueue, _alive, alive, nParticles);
@@ -152,9 +156,6 @@ void Compute::loadInitialConditions(MTL::Device* device, MTL::CommandQueue* comm
         nextActiveTime[i] = 0;
     }
     writeDataToPrivateBuffer(device, commandQueue, _nextActiveTime, nextActiveTime, nParticles);
-    
-    writeDataToPrivateBuffer(device, commandQueue, _cellSize, cellSize);
-    writeDataToPrivateBuffer(device, commandQueue, _cellsPerDim, cellsPerDim);
 }
 
 // -------------------------------- //
@@ -180,6 +181,7 @@ void Compute::buildBuffers(MTL::Device* device, MTL::CommandQueue *commandQueue)
     _dInternalEnergyBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _balsara = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     rhoGrads = device->newBuffer(nParticles * sizeof(simd_float3), MTL::ResourceStorageModePrivate);
+    temperature = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _cellArrayi = device->newBuffer(nParticles * sizeof(simd_uint2), MTL::ResourceStorageModePrivate);
     _cellArrayj = device->newBuffer(nParticles * sizeof(simd_uint2), MTL::ResourceStorageModePrivate);
     _bucketHist = device->newBuffer(nBlocks * SORTING_BUCKET_NUMBER * sizeof(uint), MTL::ResourceStorageModePrivate);
@@ -192,8 +194,6 @@ void Compute::buildBuffers(MTL::Device* device, MTL::CommandQueue *commandQueue)
     _nBlocks = device->newBuffer(sizeof(int), MTL::ResourceStorageModePrivate);
     _cellStart = device->newBuffer(cellsPerDim * cellsPerDim * cellsPerDim * sizeof(int), MTL::ResourceStorageModePrivate);
     _cellEnd = device->newBuffer(cellsPerDim * cellsPerDim * cellsPerDim * sizeof(int), MTL::ResourceStorageModePrivate);
-    _cellSize = device->newBuffer(sizeof(float), MTL::ResourceStorageModePrivate);
-    _cellsPerDim = device->newBuffer(sizeof(int), MTL::ResourceStorageModePrivate);
     _leafPointers = device->newBuffer(nParticles * sizeof(int), MTL::ResourceStorageModePrivate);
     _active = device->newBuffer(sizeof(bool) * nParticles, MTL::ResourceStorageModePrivate);
     _alive = device->newBuffer(sizeof(bool) * nParticles, MTL::ResourceStorageModeShared);
@@ -203,6 +203,7 @@ void Compute::buildBuffers(MTL::Device* device, MTL::CommandQueue *commandQueue)
     _nextActiveTime = device->newBuffer(sizeof(uint) * nParticles, MTL::ResourceStorageModePrivate);
     _globalTime = device->newBuffer(sizeof(int), MTL::ResourceStorageModeShared);
     _dhdt = device->newBuffer(sizeof(float) * nParticles, MTL::ResourceStorageModePrivate);
+    _particleIds = device->newBuffer(sizeof(int) * nParticles, MTL::ResourceStorageModePrivate);
 }
 
 void Compute::buildShaders(MTL::Device* device) {
@@ -275,14 +276,13 @@ void Compute::densityPass(MTL::CommandBuffer* commandBuffer) {
     computeEncoder->setBuffer(_speedOfSoundBuffer, 0, 9);
     computeEncoder->setBuffer(_balsara, 0, 10);
     computeEncoder->setBuffer(rhoGrads, 0, 11);
-    computeEncoder->setBuffer(_cellArrayi, 0, 12);
-    computeEncoder->setBuffer(_cellStart, 0, 13);
-    computeEncoder->setBuffer(_cellEnd, 0, 14);
-    computeEncoder->setBuffer(_cellSize, 0, 15);
-    computeEncoder->setBuffer(_cellsPerDim, 0, 16);
-    computeEncoder->setBuffer(_active, 0, 17);
-    computeEncoder->setBuffer(_alive, 0, 18);
-    computeEncoder->setBuffer(_dt, 0, 19);
+    computeEncoder->setBuffer(temperature, 0, 12);
+    computeEncoder->setBuffer(_cellArrayi, 0, 13);
+    computeEncoder->setBuffer(_cellStart, 0, 14);
+    computeEncoder->setBuffer(_cellEnd, 0, 15);
+    computeEncoder->setBuffer(_active, 0, 16);
+    computeEncoder->setBuffer(_alive, 0, 17);
+    computeEncoder->setBuffer(_dt, 0, 18);
     computeEncoder->setTexture(_forsterite, 0);
     computeEncoder->setTexture(_Fe85Si15, 1);
     
@@ -312,13 +312,11 @@ void Compute::accelerationPass(MTL::CommandBuffer* commandBuffer) {
     computeEncoder->setBuffer(_cellArrayi, 0, 13);
     computeEncoder->setBuffer(_cellStart, 0, 14);
     computeEncoder->setBuffer(_cellEnd, 0, 15);
-    computeEncoder->setBuffer(_cellSize, 0, 16);
-    computeEncoder->setBuffer(_cellsPerDim, 0, 17);
-    computeEncoder->setBuffer(_active, 0, 18);
-    computeEncoder->setBuffer(_alive, 0, 19);
-    computeEncoder->setBuffer(_nextActiveTime, 0, 20);
-    computeEncoder->setBuffer(_globalTime, 0, 21);
-    computeEncoder->setBuffer(_dt, 0, 22);
+    computeEncoder->setBuffer(_active, 0, 16);
+    computeEncoder->setBuffer(_alive, 0, 17);
+    computeEncoder->setBuffer(_nextActiveTime, 0, 18);
+    computeEncoder->setBuffer(_globalTime, 0, 19);
+    computeEncoder->setBuffer(_dt, 0, 20);
     encodeCommand(computeEncoder, _accelerationPSO, nParticles, 256);
 
     //  End the compute pass.
@@ -354,9 +352,7 @@ void Compute::sort(MTL::CommandBuffer *commandBuffer) {
     // Calcualte particle indexes and write to cell data
     MTL::ComputeCommandEncoder* computeEncoder = commandBuffer->computeCommandEncoder();
     computeEncoder->setBuffer(positionBuffer, 0, 0);
-    computeEncoder->setBuffer(_cellSize, 0, 1);
-    computeEncoder->setBuffer(_cellsPerDim, 0, 2);
-    computeEncoder->setBuffer(_cellArrayi, 0, 3);
+    computeEncoder->setBuffer(_cellArrayi, 0, 1);
     encodeCommand(computeEncoder, _hashPSO, nParticles);
     computeEncoder->endEncoding();
     
@@ -430,6 +426,7 @@ void Compute::gravitationalPass(MTL::CommandBuffer* commandBuffer) {
         computeEncoder->setBuffer(_active, 0, 9);
         computeEncoder->setBuffer(_nextActiveTime, 0, 10);
         computeEncoder->setBuffer(_globalTime, 0, 11);
+        computeEncoder->setBuffer(_dt, 0, 12);
 
 
         encodeCommand(computeEncoder, _upTreePSO, treeLevels[i].size());
@@ -533,6 +530,7 @@ void Compute::shuffleData(MTL::Device* device, MTL::CommandQueue* commandQueue) 
     _nextActiveTime = shuffleInt(device, commandQueue, _nextActiveTime);
     _dhdt = shuffleFloat(device, commandQueue, _dhdt);
     _alive = shuffleBool(device, commandQueue, _alive);
+    _particleIds = shuffleInt(device, commandQueue, _particleIds);
     updateOctreeBuffer(device);
     inverseCellParticles(device, commandQueue);
     for (int i = 0; i < _treeLevelBuffers.size(); i++) {
@@ -793,6 +791,7 @@ void Compute::saveState(MTL::Device* device, MTL::CommandQueue* commandQueue, st
     MTL::Buffer* materialIds = device->newBuffer(sizeof(int) * nParticles, MTL::ResourceStorageModeShared);
     MTL::Buffer* pressures = device->newBuffer(sizeof(float) * nParticles, MTL::ResourceStorageModeShared);
     MTL::Buffer* smoothingLengths = device->newBuffer(sizeof(float) * nParticles, MTL::ResourceStorageModeShared);
+    MTL::Buffer* particleIds = device->newBuffer(sizeof(int) * nParticles, MTL::ResourceStorageModeShared);
     
     // Copy the data into them
     MTL::CommandBuffer* cmdBuffer = commandQueue->commandBuffer();
@@ -804,6 +803,7 @@ void Compute::saveState(MTL::Device* device, MTL::CommandQueue* commandQueue, st
     blitEncoder->copyFromBuffer(materialIdBuffer, 0, materialIds, 0, sizeof(int) * nParticles);
     blitEncoder->copyFromBuffer(_pressureBuffer, 0, pressures, 0, sizeof(float) * nParticles);
     blitEncoder->copyFromBuffer(_smoothingLengthBuffer, 0, smoothingLengths, 0, sizeof(float) * nParticles);
+    blitEncoder->copyFromBuffer(_particleIds, 0, particleIds, 0, sizeof(int) * nParticles);
     blitEncoder->endEncoding();
     cmdBuffer->commit();
     cmdBuffer->waitUntilCompleted();
@@ -825,7 +825,9 @@ void Compute::saveState(MTL::Device* device, MTL::CommandQueue* commandQueue, st
     data.pressures.insert(data.pressures.end(), &p[0], &p[nParticles]);
     float* h = static_cast<float*>(smoothingLengths->contents());
     data.smoothingLengths.insert(data.smoothingLengths.end(), &h[0], &h[nParticles]);
-    
+    int* pids = static_cast<int*>(particleIds->contents());
+    data.particleIds.insert(data.particleIds.end(), &pids[0], &pids[nParticles]);
+        
     writeHDFFile(filename, data);
     
     velocities->release();
@@ -835,4 +837,5 @@ void Compute::saveState(MTL::Device* device, MTL::CommandQueue* commandQueue, st
     materialIds->release();
     pressures->release();
     smoothingLengths->release();
+    particleIds->release();
 }

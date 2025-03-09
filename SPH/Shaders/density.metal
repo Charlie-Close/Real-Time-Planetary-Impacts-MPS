@@ -21,11 +21,10 @@ kernel void density(device float3* positions,
                     device float* speedsOfSound,
                     device float* balsara,
                     device float3* rhoGrads,
+                    device float* temperatures,
                     device uint2* cellData,
                     device int* cellStarts,
                     device int* cellEnds,
-                    device float* cellSize,
-                    device int* cellsPerDim,
                     device bool* active,
                     device bool* alive,
                     device int* dt,
@@ -80,6 +79,7 @@ kernel void density(device float3* positions,
 
         pressures[ind] = pc.x;
         speedsOfSound[ind] = pc.y;
+        temperatures[ind] = pc.z;
         return;
     }
     
@@ -121,7 +121,7 @@ kernel void density(device float3* positions,
                 particlesInRange++;
             }
         } else {
-            CellToScanRange range = setCellsToScanDynamic(x_i, *cellSize, *cellsPerDim, h_i);
+            CellToScanRange range = setCellsToScanDynamic(x_i, h_i);
             nNeighbours = 0;
             for (int x = range.min.x; x <= range.max.x; x++) {
                 for (int y = range.min.y; y <= range.max.y; y++) {
@@ -221,7 +221,7 @@ kernel void density(device float3* positions,
         }
     } else {
         // Our cache has overflowed. Regrettably we need to loop though surrounding cells.
-        CellToScanRange range = setCellsToScanDynamic(x_i, *cellSize, *cellsPerDim, h_i);
+        CellToScanRange range = setCellsToScanDynamic(x_i, h_i);
         for (int x = range.min.x; x <= range.max.x; x++) {
             for (int y = range.min.y; y <= range.max.y; y++) {
                 for (int z = range.min.z; z <= range.max.z; z++) {
@@ -290,6 +290,7 @@ kernel void density(device float3* positions,
     float4 pc = materialId == 400 ? texForesite.sample(textureSampler, uv) : texFe.sample(textureSampler, uv);
     pressures[ind] = pc.x;
     speedsOfSound[ind] = pc.y;
+    temperatures[ind] = pc.z;
 
     // Calculate our balsara switch.
     balsara[ind] = velDiv / (velDiv + absCurl + 1e-4 * (pc.y / h_i));

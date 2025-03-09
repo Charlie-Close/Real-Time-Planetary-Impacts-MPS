@@ -173,22 +173,41 @@ std::tuple<std::vector<simd_float3>, std::vector<std::vector<uint16_t>>> generat
 
 
 std::tuple<std::vector<simd_float3>, std::vector<simd_float3>, std::vector<uint16_t>> generateSphere(float size, int subdivisions) {
-    std::vector<simd_float3> vertices;
-    std::vector<std::vector<uint16_t>> faces;
-    std::tie(vertices, faces) = generate_icosphere(subdivisions);
+    std::vector<simd_float3> vertices = {
+        (simd_float3){-1, -1, 0},
+        (simd_float3){1, -1, 0},
+        (simd_float3){1, 1, 0},
+        (simd_float3){-1, 1, 0},
+    };
+    std::vector<std::vector<uint16_t>> faces = {
+        { 0, 1, 2 },
+        { 0, 2, 3 },
+    };
     std::vector<simd_float3> normals = compute_normals(vertices, faces, (simd_float3){ 0, 0, 0 });
-    reduce_mesh_data(vertices, faces, normals);
-    
-    for (int i = 0; i < vertices.size(); i++) {
-        vertices[i] *= size;
-    }
-    
     std::vector<uint16_t> indices(faces.size() * 3);
     for (int i = 0; i < faces.size(); i ++) {
         indices[i * 3] = faces[i][0];
         indices[i * 3 + 1] = faces[i][1];
         indices[i * 3 + 2] = faces[i][2];
     }
-
     return {vertices, normals, indices};
+    
+//    std::vector<simd_float3> vertices
+//    std::vector<std::vector<uint16_t>> faces;
+//    std::tie(vertices, faces) = generate_icosphere(subdivisions);
+//    std::vector<simd_float3> normals = compute_normals(vertices, faces, (simd_float3){ 0, 0, 0 });
+//    reduce_mesh_data(vertices, faces, normals);
+//    
+//    for (int i = 0; i < vertices.size(); i++) {
+//        vertices[i] *= size;
+//    }
+//    
+//    std::vector<uint16_t> indices(faces.size() * 3);
+//    for (int i = 0; i < faces.size(); i ++) {
+//        indices[i * 3] = faces[i][0];
+//        indices[i * 3 + 1] = faces[i][1];
+//        indices[i * 3 + 2] = faces[i][2];
+//    }
+//
+//    return {vertices, normals, indices};
 }

@@ -20,7 +20,7 @@ struct ANEOSTable
     float* rho;
     float* u;
     
-    simd_float2* data; // ( pressure, sound_speed )
+    simd_float3* data; // ( pressure, sound_speed, temperature )
     
     float minRho;
     float maxRho;

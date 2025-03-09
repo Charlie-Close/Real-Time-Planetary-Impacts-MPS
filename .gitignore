@@ -1,0 +1,10 @@
+//
+//  .gitignore
+//  SPH
+//
+//  Created by Charlie Close on 10/02/2025.
+//
+
+*.png
+*.hdf5
+*.mov

@@ -21,6 +21,7 @@ struct DataStruct {
     std::vector<int> materialIDs;
     std::vector<float> pressures;
     std::vector<float> smoothingLengths;
+    std::vector<int> particleIds;
 };
 
 DataStruct readHDFFile(const std::string& filepath);

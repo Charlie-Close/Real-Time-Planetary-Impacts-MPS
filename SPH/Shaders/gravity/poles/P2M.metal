@@ -9,7 +9,7 @@
 #include <metal_stdlib>
 using namespace metal;
 
-Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float* grav, device float* h, device bool* active, device int* nextActiveTime, device int* globalTime, int treePointer) {
+Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float* grav, device float* h, device bool* active, device int* nextActiveTime, device int* globalTime, device int& dt, int treePointer) {
     Multipole mp;
     int nParticles = treeStructure[treePointer];
     int start = treePointer + 2;
@@ -31,7 +31,7 @@ Multipole P2M(device int* treeStructure, device float* masses, device float3* po
         float3 p_position = positions[p];
         float p_h = h[p];
         float p_eta = min(p_h * GAMMA * PLUMBER_EQUIVALENT, GRAVITY_SMOOTHING_LENGTH);
-        int isActive = (*globalTime) >= nextActiveTime[p];
+        int isActive = (*globalTime) + dt >= nextActiveTime[p];
         if (!mp.active and isActive) {
             mp.active = true;
         }

@@ -45,6 +45,7 @@ kernel void upPass(device float3* positions,
                    device bool* active,
                    device int* nextActiveTime,
                    device int* globalTime,
+                   device int& dt,
                    uint index [[thread_position_in_grid]])
 {
     int treePointer = pointers[index];
@@ -58,7 +59,7 @@ kernel void upPass(device float3* positions,
     } else {
         // We are looking at a leaf node, so we sum the child particles (known in literature as P2M
         // - Particle to Multipole)
-        multipoles[dataPointer] = P2M(treeStructure, masses, positions, gravNorm, h, active, nextActiveTime, globalTime, treePointer);
+        multipoles[dataPointer] = P2M(treeStructure, masses, positions, gravNorm, h, active, nextActiveTime, globalTime, dt, treePointer);
     }
 }
 
