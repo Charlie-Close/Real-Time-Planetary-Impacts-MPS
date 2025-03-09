@@ -45,6 +45,7 @@
 		5B5C9C1B2D41611D003302F2 /* octree.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B5C9C192D41611D003302F2 /* octree.cpp */; };
 		5B6086972D42604D0037C449 /* gravity.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B6086962D42604D0037C449 /* gravity.metal */; };
 		5B6086A12D43D3D90037C449 /* ParticleMesh.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B6086A02D43D3D90037C449 /* ParticleMesh.cpp */; };
+		5BE2807C2D7DA5CB006734F3 /* Snapshotter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5BE2807B2D7DA5CB006734F3 /* Snapshotter.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -139,6 +140,8 @@
 		5B6086A02D43D3D90037C449 /* ParticleMesh.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ParticleMesh.cpp; sourceTree = "<group>"; };
 		5B702C6A2D553DDD00DEE8C7 /* Parameters.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Parameters.h; sourceTree = "<group>"; };
 		5BCC04302D639BDD00FD3488 /* demo_impact_n70.hdf5 */ = {isa = PBXFileReference; lastKnownFileType = file; path = demo_impact_n70.hdf5; sourceTree = "<group>"; };
+		5BE2807A2D7DA5CB006734F3 /* Snapshotter.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Snapshotter.hpp; sourceTree = "<group>"; };
+		5BE2807B2D7DA5CB006734F3 /* Snapshotter.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Snapshotter.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -272,6 +275,7 @@
 		5B5C9BDA2D4120ED003302F2 /* Rendering */ = {
 			isa = PBXGroup;
 			children = (
+				5BE280792D7DA5BE006734F3 /* Snapshotter */,
 				5B5C9BE62D412365003302F2 /* Particles */,
 				5B5C9BCC2D4120ED003302F2 /* ViewDelegate */,
 				5B5C9BCF2D4120ED003302F2 /* AppDelegate */,
@@ -375,6 +379,15 @@
 			path = poles;
 			sourceTree = "<group>";
 		};
+		5BE280792D7DA5BE006734F3 /* Snapshotter */ = {
+			isa = PBXGroup;
+			children = (
+				5BE2807A2D7DA5CB006734F3 /* Snapshotter.hpp */,
+				5BE2807B2D7DA5CB006734F3 /* Snapshotter.cpp */,
+			);
+			path = Snapshotter;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -444,6 +457,7 @@
 				5B5C9BDB2D4120ED003302F2 /* ViewDelegate.cpp in Sources */,
 				5B3093A32D5BC6C900D18BF6 /* shuffle.metal in Sources */,
 				5B5C9BE42D412186003302F2 /* Buffers.cpp in Sources */,
+				5BE2807C2D7DA5CB006734F3 /* Snapshotter.cpp in Sources */,
 				5B5C9BDC2D4120ED003302F2 /* Render.cpp in Sources */,
 				5B5C9BDD2D4120ED003302F2 /* ViewPass.m in Sources */,
 				5B6086A12D43D3D90037C449 /* ParticleMesh.cpp in Sources */,
