@@ -1,5 +1,7 @@
 # Smoothed Particle Hydrodynamics simulation applied to the canonical moon forming impact in Metal C++
 
+![Snapshot from 30 million particle run](./10^7.5_snapshot.png)
+
 Full compute to render real time smoothed particle hydrodynamics solver including:
   - Self gravity using the fast multipole method
   - Variable smoothing length
