@@ -30,6 +30,17 @@ static inline uint cellPositionToIndex(int3 pos) {
     return morton3D((uint) modded.x, (uint) modded.y, (uint) modded.z);
 }
 
+static inline uint cellPositionToLargeBoundIndex(int3 pos) {
+    int mask = (1 << 10) - 1;
+    int3 modded = {
+        (pos.x >> 4) & mask,
+        (pos.y >> 4) & mask,
+        (pos.z >> 4) & mask
+    };
+    
+    return morton3D((uint) modded.x, (uint) modded.y, (uint) modded.z);
+}
+
 static inline CellToScanRange setCellsToScanDynamic(
     float3 position,
     float  h

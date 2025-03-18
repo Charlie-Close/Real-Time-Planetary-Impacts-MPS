@@ -68,15 +68,17 @@ void Renderer::draw(MTK::View* pView)
     // The simulation logic is in here. Can run multiple simulation steps per frame.
     for (int i = 0; i < STEPS_PER_FRAME; i++) {
         compute->sort(pCmd);
+        compute->activatePass(pCmd);
         compute->gravitationalPass(pCmd);
         if (_frame == 0) {
             // First frame loop density to get smooth gradients
             for (int j = 0; j < DENSITY_GRADIENT_SETTLING_ITTERATIONS; j++) {
-                compute->densityPass(pCmd);
+                compute->densityPass(pCmd, false);
             }
         }
         compute->densityPass(pCmd);
         compute->accelerationPass(pCmd);
+        compute->accelerationStepPass(pCmd);
         compute->stepPass(pCmd);
         _frame++;
     }

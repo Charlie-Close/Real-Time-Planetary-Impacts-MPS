@@ -12,6 +12,7 @@
 #include "ANEOS.hpp"
 #include <thread>
 #include "lodepng.h"
+#include <chrono>
 
 // -------------------------------- //
 //                                  //
@@ -49,6 +50,7 @@ Compute::~Compute() {
     densityBuffer->release();
     _velocityBuffer->release();
     _accelerationBuffer->release();
+    _gravAccelerationBuffer->release();
     _internalEnergyBuffer->release();
     _massBuffer->release();
     _pressureBuffer->release();
@@ -93,10 +95,10 @@ Compute::~Compute() {
     _scanPSO->release();
     _sumPSO->release();
     _sortPSO->release();
-    _initialisePSO->release();
     _findPosPSO->release();
     _upTreePSO->release();
     _downTreePSO->release();
+    _activatePSO->release();
     _densityPSO->release();
     _accelerationPSO->release();
     _mStepPSO->release();
@@ -113,12 +115,21 @@ Compute::~Compute() {
 // -------------------------------- //
 
 void Compute::loadInitialConditions(MTL::Device* device, MTL::CommandQueue* commandQueue, DataStruct data) {
+    ANEOSTable ironTable = loadANEOSDataFromFile("ANEOS_iron_S20.txt", ANEOS_TEXTURE_RESOLUTION);
     ANEOSTable forTable = loadANEOSDataFromFile("ANEOS_forsterite_S19.txt", ANEOS_TEXTURE_RESOLUTION);
     ANEOSTable feTable = loadANEOSDataFromFile("ANEOS_Fe85Si15_S20.txt", ANEOS_TEXTURE_RESOLUTION);
+    ANEOSTable HHeTable = loadHMDataFromFile("HM80_HHe.txt", ANEOS_TEXTURE_RESOLUTION);
+    ANEOSTable iceTable = loadHMDataFromFile("HM80_ice.txt", ANEOS_TEXTURE_RESOLUTION);
+    ANEOSTable rockTable = loadHMDataFromFile("HM80_rock.txt", ANEOS_TEXTURE_RESOLUTION);
+
     
+    _iron = createRG32FloatTexture(device, commandQueue, ironTable);
     _forsterite = createRG32FloatTexture(device, commandQueue, forTable);
     _Fe85Si15 = createRG32FloatTexture(device, commandQueue, feTable);
-    
+    _HHe = createRG32FloatTexture(device, commandQueue, HHeTable);
+    _ice = createRG32FloatTexture(device, commandQueue, iceTable);
+    _rock = createRG32FloatTexture(device, commandQueue, rockTable);
+
     // Write all the data to the buffers
     writeDataToBuffer(positionBuffer, data.positions);
     writeDataToPrivateBuffer(device, commandQueue, _velocityBuffer, data.velocities);
@@ -150,6 +161,7 @@ void Compute::loadInitialConditions(MTL::Device* device, MTL::CommandQueue* comm
     writeDataToPrivateBuffer(device, commandQueue, _active, active, nParticles);
     writeDataToPrivateBuffer(device, commandQueue, _alive, alive, nParticles);
     writeDataToPrivateBuffer(device, commandQueue, _globalTime, (int)0);
+    writeDataToPrivateBuffer(device, commandQueue, _dt, (int)0);
     
     int* nextActiveTime = new int[nParticles];
     for (int i = 0; i < nParticles; i++) {
@@ -170,6 +182,8 @@ void Compute::buildBuffers(MTL::Device* device, MTL::CommandQueue *commandQueue)
     positionBuffer = device->newBuffer(nParticles * sizeof(simd_float3), MTL::ResourceStorageModeShared);
     _velocityBuffer = device->newBuffer(nParticles * sizeof(simd_float3), MTL::ResourceStorageModePrivate);
     _accelerationBuffer = device->newBuffer(nParticles * sizeof(simd_float3), MTL::ResourceStorageModePrivate);
+    _accelerationBuffer1 = device->newBuffer(nParticles * sizeof(simd_float3), MTL::ResourceStorageModePrivate);
+    _gravAccelerationBuffer = device->newBuffer(nParticles * sizeof(simd_float3), MTL::ResourceStorageModePrivate);
     densityBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _internalEnergyBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _massBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
@@ -184,6 +198,7 @@ void Compute::buildBuffers(MTL::Device* device, MTL::CommandQueue *commandQueue)
     temperature = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _cellArrayi = device->newBuffer(nParticles * sizeof(simd_uint2), MTL::ResourceStorageModePrivate);
     _cellArrayj = device->newBuffer(nParticles * sizeof(simd_uint2), MTL::ResourceStorageModePrivate);
+    _largeParticleCells = device->newBuffer(nParticles * sizeof(uint), MTL::ResourceStorageModePrivate);
     _bucketHist = device->newBuffer(nBlocks * SORTING_BUCKET_NUMBER * sizeof(uint), MTL::ResourceStorageModePrivate);
     _bucketOffset = device->newBuffer(SORTING_BUCKET_NUMBER * sizeof(uint), MTL::ResourceStorageModePrivate);
     _particleOffset = device->newBuffer(nParticles * sizeof(uint), MTL::ResourceStorageModePrivate);
@@ -212,8 +227,10 @@ void Compute::buildShaders(MTL::Device* device) {
     // Load the shader files with a .metal file extension in the project
     MTL::Library* defaultLibrary = device->newDefaultLibrary();
     
+    MTL::Function* activateFunction = defaultLibrary->newFunction(NS::String::string("activate", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* densityFunction = defaultLibrary->newFunction(NS::String::string("density", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* accelerationFunction = defaultLibrary->newFunction(NS::String::string("acceleration", NS::StringEncoding::UTF8StringEncoding));
+    MTL::Function* accelerationStepFunction = defaultLibrary->newFunction(NS::String::string("accelerationStep", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* upPassFunction = defaultLibrary->newFunction(NS::String::string("upPass", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* downPassFunction = defaultLibrary->newFunction(NS::String::string("downPass", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* stepFunction = defaultLibrary->newFunction(NS::String::string("step", NS::StringEncoding::UTF8StringEncoding));
@@ -222,7 +239,6 @@ void Compute::buildShaders(MTL::Device* device) {
     MTL::Function* scanFunction = defaultLibrary->newFunction(NS::String::string("scan", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* sumFunction = defaultLibrary->newFunction(NS::String::string("sum", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* sortFunction = defaultLibrary->newFunction(NS::String::string("sort", NS::StringEncoding::UTF8StringEncoding));
-    MTL::Function* initFunction = defaultLibrary->newFunction(NS::String::string("initialise", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* fcpFunction = defaultLibrary->newFunction(NS::String::string("findCellPositions", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* shuffleFloat = defaultLibrary->newFunction(NS::String::string("shuffleFloat", NS::StringEncoding::UTF8StringEncoding));
     MTL::Function* shuffleFloat3 = defaultLibrary->newFunction(NS::String::string("shuffleFloat3", NS::StringEncoding::UTF8StringEncoding));
@@ -234,8 +250,10 @@ void Compute::buildShaders(MTL::Device* device) {
     
     
     // Create a compute pipeline state object.
+    _activatePSO = device->newComputePipelineState(activateFunction, error);
     _densityPSO = device->newComputePipelineState(densityFunction, error);
     _accelerationPSO = device->newComputePipelineState(accelerationFunction, error);
+    _accelerationStepPSO = device->newComputePipelineState(accelerationStepFunction, error);
     _upTreePSO = device->newComputePipelineState(upPassFunction, error);
     _downTreePSO = device->newComputePipelineState(downPassFunction, error);
     _mStepPSO = device->newComputePipelineState(stepFunction, error);
@@ -244,7 +262,6 @@ void Compute::buildShaders(MTL::Device* device) {
     _scanPSO = device->newComputePipelineState(scanFunction, error);
     _sumPSO = device->newComputePipelineState(sumFunction, error);
     _sortPSO = device->newComputePipelineState(sortFunction, error);
-    _initialisePSO = device->newComputePipelineState(initFunction, error);
     _findPosPSO = device->newComputePipelineState(fcpFunction, error);
     _shuffleFloat = device->newComputePipelineState(shuffleFloat, error);
     _shuffleFloat3 = device->newComputePipelineState(shuffleFloat3, error);
@@ -260,7 +277,30 @@ void Compute::buildShaders(MTL::Device* device) {
 //                                  //
 // -------------------------------- //
 
-void Compute::densityPass(MTL::CommandBuffer* commandBuffer) {
+void Compute::activatePass(MTL::CommandBuffer* commandBuffer) {
+    framesSinceLastActivated++;
+    bool activate = false;
+    if (framesSinceLastActivated == ACTIVATE_ALL_STEPS) {
+        activate = true;
+        framesSinceLastActivated = 0;
+    }
+    MTL::ComputeCommandEncoder* computeEncoder = commandBuffer->computeCommandEncoder();
+    assert(computeEncoder != nil);
+    
+    computeEncoder->setBuffer(_active, 0, 0);
+    computeEncoder->setBuffer(_nextActiveTime, 0, 1);
+    computeEncoder->setBuffer(_globalTime, 0, 2);
+    computeEncoder->setBuffer(_dt, 0, 3);
+    computeEncoder->setBytes(&activate, sizeof(bool), 4);
+    
+    encodeCommand(computeEncoder, _activatePSO, nParticles);
+
+    //  End the compute pass.
+    computeEncoder->endEncoding();
+}
+
+
+void Compute::densityPass(MTL::CommandBuffer* commandBuffer, bool step) {
     MTL::ComputeCommandEncoder* computeEncoder = commandBuffer->computeCommandEncoder();
     assert(computeEncoder != nil);
     
@@ -280,11 +320,16 @@ void Compute::densityPass(MTL::CommandBuffer* commandBuffer) {
     computeEncoder->setBuffer(_cellArrayi, 0, 13);
     computeEncoder->setBuffer(_cellStart, 0, 14);
     computeEncoder->setBuffer(_cellEnd, 0, 15);
-    computeEncoder->setBuffer(_active, 0, 16);
-    computeEncoder->setBuffer(_alive, 0, 17);
-    computeEncoder->setBuffer(_dt, 0, 18);
-    computeEncoder->setTexture(_forsterite, 0);
-    computeEncoder->setTexture(_Fe85Si15, 1);
+    computeEncoder->setBuffer(_largeParticleCells, 0, 16);
+    computeEncoder->setBuffer(_active, 0, 17);
+    computeEncoder->setBuffer(_alive, 0, 18);
+    computeEncoder->setBuffer(_dt, 0, 19);
+    computeEncoder->setTexture(_iron, 0);
+    computeEncoder->setTexture(_forsterite, 1);
+    computeEncoder->setTexture(_Fe85Si15, 2);
+    computeEncoder->setTexture(_HHe, 3);
+    computeEncoder->setTexture(_ice, 4);
+    computeEncoder->setTexture(_rock, 5);
     
     encodeCommand(computeEncoder, _densityPSO, nParticles, 256);
 
@@ -299,29 +344,82 @@ void Compute::accelerationPass(MTL::CommandBuffer* commandBuffer) {
     computeEncoder->setBuffer(positionBuffer, 0, 0);
     computeEncoder->setBuffer(_velocityBuffer, 0, 1);
     computeEncoder->setBuffer(_accelerationBuffer, 0, 2);
-    computeEncoder->setBuffer(densityBuffer, 0, 3);
-    computeEncoder->setBuffer(_internalEnergyBuffer, 0, 4);
-    computeEncoder->setBuffer(_massBuffer, 0, 5);
-    computeEncoder->setBuffer(_pressureBuffer, 0, 6);
-    computeEncoder->setBuffer(_smoothingLengthBuffer, 0, 7);
-    computeEncoder->setBuffer(_gradientTermsBuffer, 0, 8);
-    computeEncoder->setBuffer(_speedOfSoundBuffer, 0, 9);
-    computeEncoder->setBuffer(_dInternalEnergyBuffer, 0, 10);
-    computeEncoder->setBuffer(_balsara, 0, 11);
-    computeEncoder->setBuffer(_dhdt, 0, 12);
-    computeEncoder->setBuffer(_cellArrayi, 0, 13);
-    computeEncoder->setBuffer(_cellStart, 0, 14);
-    computeEncoder->setBuffer(_cellEnd, 0, 15);
-    computeEncoder->setBuffer(_active, 0, 16);
-    computeEncoder->setBuffer(_alive, 0, 17);
-    computeEncoder->setBuffer(_nextActiveTime, 0, 18);
-    computeEncoder->setBuffer(_globalTime, 0, 19);
-    computeEncoder->setBuffer(_dt, 0, 20);
+    computeEncoder->setBuffer(_accelerationBuffer1, 0, 3);
+    computeEncoder->setBuffer(_gravAccelerationBuffer, 0, 4);
+    computeEncoder->setBuffer(densityBuffer, 0, 5);
+    computeEncoder->setBuffer(_internalEnergyBuffer, 0, 6);
+    computeEncoder->setBuffer(_massBuffer, 0, 7);
+    computeEncoder->setBuffer(_smoothingLengthBuffer, 0, 8);
+    computeEncoder->setBuffer(_gradientTermsBuffer, 0, 9);
+    computeEncoder->setBuffer(_speedOfSoundBuffer, 0, 10);
+    computeEncoder->setBuffer(_dInternalEnergyBuffer, 0, 11);
+    computeEncoder->setBuffer(_balsara, 0, 12);
+    computeEncoder->setBuffer(_dhdt, 0, 13);
+    computeEncoder->setBuffer(_cellArrayi, 0, 14);
+    computeEncoder->setBuffer(_cellStart, 0, 15);
+    computeEncoder->setBuffer(_cellEnd, 0, 16);
+    computeEncoder->setBuffer(_largeParticleCells, 0, 17);
+    computeEncoder->setBuffer(_active, 0, 18);
+    computeEncoder->setBuffer(_alive, 0, 19);
+    computeEncoder->setBuffer(_nextActiveTime, 0, 20);
+    computeEncoder->setBuffer(_globalTime, 0, 21);
+    computeEncoder->setBuffer(_dt, 0, 22);
+    computeEncoder->setBuffer(_pressureBuffer, 0, 23);
+    computeEncoder->setBuffer(materialIdBuffer, 0, 24);
+    computeEncoder->setTexture(_iron, 0);
+    computeEncoder->setTexture(_forsterite, 1);
+    computeEncoder->setTexture(_Fe85Si15, 2);
+    computeEncoder->setTexture(_HHe, 3);
+    computeEncoder->setTexture(_ice, 4);
+    computeEncoder->setTexture(_rock, 5);
     encodeCommand(computeEncoder, _accelerationPSO, nParticles, 256);
 
     //  End the compute pass.
     computeEncoder->endEncoding();
 }
+
+void Compute::accelerationStepPass(MTL::CommandBuffer* commandBuffer) {
+    MTL::ComputeCommandEncoder* computeEncoder = commandBuffer->computeCommandEncoder();
+    assert(computeEncoder != nil);
+    
+    computeEncoder->setBuffer(positionBuffer, 0, 0);
+    computeEncoder->setBuffer(_velocityBuffer, 0, 1);
+    computeEncoder->setBuffer(_accelerationBuffer, 0, 2);
+    computeEncoder->setBuffer(_accelerationBuffer1, 0, 3);
+    computeEncoder->setBuffer(_gravAccelerationBuffer, 0, 4);
+    computeEncoder->setBuffer(densityBuffer, 0, 5);
+    computeEncoder->setBuffer(_internalEnergyBuffer, 0, 6);
+    computeEncoder->setBuffer(_massBuffer, 0, 7);
+    computeEncoder->setBuffer(_smoothingLengthBuffer, 0, 8);
+    computeEncoder->setBuffer(_gradientTermsBuffer, 0, 9);
+    computeEncoder->setBuffer(_speedOfSoundBuffer, 0, 10);
+    computeEncoder->setBuffer(_dInternalEnergyBuffer, 0, 11);
+    computeEncoder->setBuffer(_balsara, 0, 12);
+    computeEncoder->setBuffer(_dhdt, 0, 13);
+    computeEncoder->setBuffer(_cellArrayi, 0, 14);
+    computeEncoder->setBuffer(_cellStart, 0, 15);
+    computeEncoder->setBuffer(_cellEnd, 0, 16);
+    computeEncoder->setBuffer(_largeParticleCells, 0, 17);
+    computeEncoder->setBuffer(_active, 0, 18);
+    computeEncoder->setBuffer(_alive, 0, 19);
+    computeEncoder->setBuffer(_nextActiveTime, 0, 20);
+    computeEncoder->setBuffer(_globalTime, 0, 21);
+    computeEncoder->setBuffer(_dt, 0, 22);
+    computeEncoder->setBuffer(_pressureBuffer, 0, 23);
+    computeEncoder->setBuffer(materialIdBuffer, 0, 24);
+    computeEncoder->setTexture(_iron, 0);
+    computeEncoder->setTexture(_forsterite, 1);
+    computeEncoder->setTexture(_Fe85Si15, 2);
+    computeEncoder->setTexture(_HHe, 3);
+    computeEncoder->setTexture(_ice, 4);
+    computeEncoder->setTexture(_rock, 5);
+    encodeCommand(computeEncoder, _accelerationStepPSO, nParticles, 256);
+
+    //  End the compute pass.
+    computeEncoder->endEncoding();
+}
+
+
 
 void Compute::stepPass(MTL::CommandBuffer* commandBuffer) {
     // Start a compute pass.
@@ -331,16 +429,18 @@ void Compute::stepPass(MTL::CommandBuffer* commandBuffer) {
     computeEncoder->setBuffer(positionBuffer, 0, 0);
     computeEncoder->setBuffer(_velocityBuffer, 0, 1);
     computeEncoder->setBuffer(_accelerationBuffer, 0, 2);
-    computeEncoder->setBuffer(densityBuffer, 0, 3);
-    computeEncoder->setBuffer(_internalEnergyBuffer, 0, 4);
-    computeEncoder->setBuffer(_dInternalEnergyBuffer, 0, 5);
-    computeEncoder->setBuffer(_dhdt, 0, 6);
-    computeEncoder->setBuffer(_smoothingLengthBuffer, 0, 7);
-    computeEncoder->setBuffer(_active, 0, 8);
-    computeEncoder->setBuffer(_nextActiveTime, 0, 9);
-    computeEncoder->setBuffer(_globalTime, 0, 10);
-    computeEncoder->setBuffer(_dt, 0, 11);
-    computeEncoder->setBuffer(_alive, 0, 12);
+    computeEncoder->setBuffer(_accelerationBuffer1, 0, 3);
+    computeEncoder->setBuffer(_gravAccelerationBuffer, 0, 4);
+    computeEncoder->setBuffer(densityBuffer, 0, 5);
+    computeEncoder->setBuffer(_internalEnergyBuffer, 0, 6);
+    computeEncoder->setBuffer(_dInternalEnergyBuffer, 0, 7);
+    computeEncoder->setBuffer(_dhdt, 0, 8);
+    computeEncoder->setBuffer(_smoothingLengthBuffer, 0, 9);
+    computeEncoder->setBuffer(_active, 0, 10);
+    computeEncoder->setBuffer(_nextActiveTime, 0, 11);
+    computeEncoder->setBuffer(_globalTime, 0, 12);
+    computeEncoder->setBuffer(_dt, 0, 13);
+    computeEncoder->setBuffer(_alive, 0, 14);
     encodeCommand(computeEncoder, _mStepPSO, nParticles);
 
     //  End the compute pass.
@@ -353,6 +453,7 @@ void Compute::sort(MTL::CommandBuffer *commandBuffer) {
     MTL::ComputeCommandEncoder* computeEncoder = commandBuffer->computeCommandEncoder();
     computeEncoder->setBuffer(positionBuffer, 0, 0);
     computeEncoder->setBuffer(_cellArrayi, 0, 1);
+    computeEncoder->setBuffer(_largeParticleCells, 0, 2);
     encodeCommand(computeEncoder, _hashPSO, nParticles);
     computeEncoder->endEncoding();
     
@@ -393,12 +494,11 @@ void Compute::sort(MTL::CommandBuffer *commandBuffer) {
         encodeCommand(cEncSort, _sortPSO, nParticles);
         cEncSort->endEncoding();
     }
-    
-    MTL::ComputeCommandEncoder* cEncInit = commandBuffer->computeCommandEncoder();
-    cEncInit->setBuffer(_cellStart, 0, 0);
-    cEncInit->setBuffer(_cellEnd, 0, 1);
-    encodeCommand(cEncInit, _initialisePSO, cellsPerDim * cellsPerDim * cellsPerDim);
-    cEncInit->endEncoding();
+
+    MTL::BlitCommandEncoder* bCmdEnc = commandBuffer->blitCommandEncoder();
+    bCmdEnc->fillBuffer(_cellStart, NS::Range(0, sizeof(uint) * cellsPerDim * cellsPerDim * cellsPerDim), 255);
+    bCmdEnc->fillBuffer(_cellEnd, NS::Range(0, sizeof(uint) * cellsPerDim * cellsPerDim * cellsPerDim), 0);
+    bCmdEnc->endEncoding();
 
     MTL::ComputeCommandEncoder* cEncPos = commandBuffer->computeCommandEncoder();
     cEncPos->setBuffer(_cellArrayi, 0, 0);
@@ -435,13 +535,17 @@ void Compute::gravitationalPass(MTL::CommandBuffer* commandBuffer) {
         computeEncoder->endEncoding();
     }
     
+    int parent_stride = 0;
+    int stride = 0;
+    
     for (int i = 0; i < _treeLevelBuffers.size(); i++) {
         MTL::ComputeCommandEncoder* computeEncoder = commandBuffer->computeCommandEncoder();
         assert(computeEncoder != nil);
         
+        stride = (int)(prevGravDataSize / (sizeof(int) * treeLevels[i].size()));
     
         computeEncoder->setBuffer(positionBuffer, 0, 0);
-        computeEncoder->setBuffer(_accelerationBuffer, 0, 1);
+        computeEncoder->setBuffer(_gravAccelerationBuffer, 0, 1);
         computeEncoder->setBuffer(_massBuffer, 0, 2);
         computeEncoder->setBuffer(_smoothingLengthBuffer, 0, 3);
         computeEncoder->setBuffer(_tree, 0, 4);
@@ -453,12 +557,15 @@ void Compute::gravitationalPass(MTL::CommandBuffer* commandBuffer) {
         computeEncoder->setBuffer(i % 2 == 0 ? _localGravj : _localGravi, 0, 10);
         computeEncoder->setBuffer(_gravAbs, 0, 11);
         computeEncoder->setBuffer(_active, 0, 12);
-
+        computeEncoder->setBytes(&parent_stride, sizeof(int), 13);
+        computeEncoder->setBytes(&stride, sizeof(int), 14);
 
         encodeCommand(computeEncoder, _downTreePSO, treeLevels[i].size());
 
         //  End the compute pass.
         computeEncoder->endEncoding();
+        
+        parent_stride = stride;
     }
 }
 
@@ -480,7 +587,7 @@ void Compute::encodeCommand(MTL::ComputeCommandEncoder* computeEncoder, MTL::Com
 
 float Compute::getTime() {
     int* globalTime = static_cast<int*>(_globalTime->contents());
-    return (*globalTime) * DT_MIN1;
+    return (*globalTime) * MIN_DT;
 }
 
 // -------------------------------- //
@@ -492,7 +599,7 @@ float Compute::getTime() {
 void Compute::updateOctreeData(MTL::Device* device) {
     simd_float3* positions = static_cast<simd_float3*>(positionBuffer->contents());
     bool* alive = static_cast<bool*>(_alive->contents());
-    buildOctree(positions, nParticles, octreeData, treeLevelsTemp, nodeValues, alive, MAX_CHILDREN_IN_LEAF);
+    buildOctree(positions, nParticles, octreeData, treeLevelsTemp, nodeValues, alive, MAX_CHILDREN_IN_LEAF, octreeData.size());
     _treeTmp = device->newBuffer(octreeData.size() * sizeof(int), MTL::ResourceStorageModeShared);
     writeDataToBuffer(_treeTmp, octreeData);
     updating = false;
@@ -515,6 +622,8 @@ void Compute::shuffleData(MTL::Device* device, MTL::CommandQueue* commandQueue) 
     positionBuffer = shuffleFloat3(device, commandQueue, positionBuffer);
     _velocityBuffer = shuffleFloat3(device, commandQueue, _velocityBuffer);
     _accelerationBuffer = shuffleFloat3(device, commandQueue, _accelerationBuffer);
+    _accelerationBuffer1 = shuffleFloat3(device, commandQueue, _accelerationBuffer1);
+    _gravAccelerationBuffer = shuffleFloat3(device, commandQueue, _gravAccelerationBuffer);
     densityBuffer = shuffleFloat(device, commandQueue, densityBuffer);
     _internalEnergyBuffer = shuffleFloat(device, commandQueue, _internalEnergyBuffer);
     _massBuffer = shuffleFloat(device, commandQueue, _massBuffer);
@@ -737,43 +846,30 @@ void Compute::updateOctreeBuffer(MTL::Device* device) {
         _treeLevelBuffers[i]->release();
     }
     _treeLevelBuffers.clear();
-    long maxSizei = 0;
-    long maxSizej = 0;
+    long maxSize = 0;
     for (int i = 0; i < treeLevels.size(); i++) {
         MTL::Buffer* treeLevelBuffer = device->newBuffer(treeLevels[i].size() * sizeof(int), MTL::ResourceStorageModeShared);
         if (i != treeLevels.size() - 1) {
-            if (i % 2 == 0) {
-                maxSizej = fmax(maxSizej, treeLevels[i].size());
-            } else {
-                maxSizei = fmax(maxSizei, treeLevels[i].size());
-            }
+            maxSize = fmax(maxSize, treeLevels[i].size());
         }
         writeDataToBuffer(treeLevelBuffer, treeLevels[i]);
         _treeLevelBuffers.push_back(treeLevelBuffer);
     }
-    long gravDataSizei = maxSizei * sizeof(int) * MAX_UNCHECKED_POINTERS;
-    long gravDataSizej = maxSizej * sizeof(int) * MAX_UNCHECKED_POINTERS;
-    if (gravDataSizei > prevGravDataSizei) {
-        gravDataSizei *= EXTRA_MEMORY_MULTIPLIER;
+    long gravDataSize = maxSize * sizeof(int) * MAX_UNCHECKED_POINTERS;
+    if (gravDataSize > prevGravDataSize) {
+        gravDataSize *= EXTRA_MEMORY_MULTIPLIER;
         _localGravi->release();
-        _localGravi = device->newBuffer(gravDataSizei, MTL::ResourceStorageModePrivate);
-        prevGravDataSizei = gravDataSizei;
-    } else if (gravDataSizei < prevGravDataSizei * RED_MEMEORY_MULTIPLIER) {
-        gravDataSizei *= EXTRA_MEMORY_MULTIPLIER;
+        _localGravj->release();
+        _localGravi = device->newBuffer(gravDataSize, MTL::ResourceStorageModePrivate);
+        _localGravj = device->newBuffer(gravDataSize, MTL::ResourceStorageModePrivate);
+        prevGravDataSize = gravDataSize;
+    } else if (gravDataSize < prevGravDataSize * RED_MEMEORY_MULTIPLIER) {
+        gravDataSize *= EXTRA_MEMORY_MULTIPLIER;
         _localGravi->release();
-        _localGravi = device->newBuffer(gravDataSizei, MTL::ResourceStorageModePrivate);
-        prevGravDataSizei = gravDataSizei;
-    }
-    if (gravDataSizej > prevGravDataSizej) {
-        gravDataSizej *= EXTRA_MEMORY_MULTIPLIER;
         _localGravj->release();
-        _localGravj = device->newBuffer(gravDataSizej, MTL::ResourceStorageModePrivate);
-        prevGravDataSizej = gravDataSizej;
-    } else if (gravDataSizej < prevGravDataSizej * RED_MEMEORY_MULTIPLIER) {
-        gravDataSizej *= EXTRA_MEMORY_MULTIPLIER;
-        _localGravj->release();
-        _localGravj = device->newBuffer(gravDataSizej, MTL::ResourceStorageModePrivate);
-        prevGravDataSizej = gravDataSizej;
+        _localGravi = device->newBuffer(gravDataSize, MTL::ResourceStorageModePrivate);
+        _localGravj = device->newBuffer(gravDataSize, MTL::ResourceStorageModePrivate);
+        prevGravDataSize = gravDataSize;
     }
     
     updating = true;
@@ -792,6 +888,7 @@ void Compute::saveState(MTL::Device* device, MTL::CommandQueue* commandQueue, st
     MTL::Buffer* pressures = device->newBuffer(sizeof(float) * nParticles, MTL::ResourceStorageModeShared);
     MTL::Buffer* smoothingLengths = device->newBuffer(sizeof(float) * nParticles, MTL::ResourceStorageModeShared);
     MTL::Buffer* particleIds = device->newBuffer(sizeof(int) * nParticles, MTL::ResourceStorageModeShared);
+    MTL::Buffer* temps = device->newBuffer(sizeof(float) * nParticles, MTL::ResourceStorageModeShared);
     
     // Copy the data into them
     MTL::CommandBuffer* cmdBuffer = commandQueue->commandBuffer();
@@ -804,6 +901,7 @@ void Compute::saveState(MTL::Device* device, MTL::CommandQueue* commandQueue, st
     blitEncoder->copyFromBuffer(_pressureBuffer, 0, pressures, 0, sizeof(float) * nParticles);
     blitEncoder->copyFromBuffer(_smoothingLengthBuffer, 0, smoothingLengths, 0, sizeof(float) * nParticles);
     blitEncoder->copyFromBuffer(_particleIds, 0, particleIds, 0, sizeof(int) * nParticles);
+    blitEncoder->copyFromBuffer(temperature, 0, temps, 0, sizeof(int) * nParticles);
     blitEncoder->endEncoding();
     cmdBuffer->commit();
     cmdBuffer->waitUntilCompleted();
@@ -827,6 +925,8 @@ void Compute::saveState(MTL::Device* device, MTL::CommandQueue* commandQueue, st
     data.smoothingLengths.insert(data.smoothingLengths.end(), &h[0], &h[nParticles]);
     int* pids = static_cast<int*>(particleIds->contents());
     data.particleIds.insert(data.particleIds.end(), &pids[0], &pids[nParticles]);
+    float* ts = static_cast<float*>(temps->contents());
+    data.temperatures.insert(data.temperatures.end(), &ts[0], &ts[nParticles]);
         
     writeHDFFile(filename, data);
     
@@ -838,4 +938,5 @@ void Compute::saveState(MTL::Device* device, MTL::CommandQueue* commandQueue, st
     pressures->release();
     smoothingLengths->release();
     particleIds->release();
+    temps->release();
 }

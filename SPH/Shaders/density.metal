@@ -7,6 +7,7 @@
 
 #include "utils/kernels.h"
 #include "utils/cellsToScan.h"
+#include "utils/eos.h"
 #include "../Parameters.h"
 
 kernel void density(device float3* positions,
@@ -25,18 +26,25 @@ kernel void density(device float3* positions,
                     device uint2* cellData,
                     device int* cellStarts,
                     device int* cellEnds,
+                    device uint* largeBoundCellParticles,
                     device bool* active,
                     device bool* alive,
-                    device int* dt,
-                    texture2d<float, access::sample> texForesite [[texture(0)]],
-                    texture2d<float, access::sample> texFe [[texture(1)]],
+                    device int& dt,
+                    texture2d<float, access::sample> texIron [[texture(0)]],
+                    texture2d<float, access::sample> texForesite [[texture(1)]],
+                    texture2d<float, access::sample> texFe [[texture(2)]],
+                    texture2d<float, access::sample> texHHe [[texture(3)]],
+                    texture2d<float, access::sample> texIce [[texture(4)]],
+                    texture2d<float, access::sample> texRock [[texture(5)]],
                     uint index [[thread_position_in_grid]],
                     uint localId [[thread_position_in_threadgroup]],
                     uint threadsPerGroup [[threads_per_threadgroup]])
 {
     if (index == 0) {
-        *dt = DT0 * DT_MIN;
+//        globalTime += dt;
+        dt = (int)floor(MAX_DT / MIN_DT);
     }
+    
     uint ind = cellData[index].y;
     
     threadgroup uint tgIndexes[THREADGROUP_CACHE_SIZE];
@@ -63,23 +71,19 @@ kernel void density(device float3* positions,
     }
 
     threadgroup_barrier(mem_flags::mem_threadgroup);
-    
+        
     // Handle case that particle is inactive.
     if (!active[ind]) {
         float u = internalEnergies[ind];
         float materialId = materialIds[ind];
         float density = densities[ind];
-
-        float uCoord = log(u / ANEOS_MIN_U) / log(ANEOS_MAX_U / ANEOS_MIN_U);
-        float rhoCoord = log(density / ANEOS_MIN_RHO) / log(ANEOS_MAX_RHO / ANEOS_MIN_RHO);
-        float2 uv = float2(uCoord, rhoCoord);
-        uv = clamp(uv, float2(0.0), float2(1.0));
-        sampler textureSampler(mag_filter::linear, min_filter::linear, mip_filter::none, address::clamp_to_edge);
-        float4 pc = materialId == 400 ? texForesite.sample(textureSampler, uv) : texFe.sample(textureSampler, uv);
+        float4 pc = eos(materialId, u, density, texIron, texForesite, texFe, texHHe, texIce, texRock);
+//        gradientTerms[ind] *= pc.x / pressures[ind];
 
         pressures[ind] = pc.x;
         speedsOfSound[ind] = pc.y;
         temperatures[ind] = pc.z;
+
         return;
     }
     
@@ -93,6 +97,9 @@ kernel void density(device float3* positions,
     float omega;
     float eps = 1;
     int count = 0;
+    
+    float min_bound = 0;
+    float max_bound = MAX_SMOOTHING_LENGTH;
 
     // Cache neighbours to speed up second pass
     int nNeighbours;
@@ -127,18 +134,27 @@ kernel void density(device float3* positions,
                 for (int y = range.min.y; y <= range.max.y; y++) {
                     for (int z = range.min.z; z <= range.max.z; z++) {
                         uint cellindex = cellPositionToIndex({ x, y, z });
-
                         uint start = cellStarts[cellindex];
                         if (start == UINT_MAX) {
                             // Cell is empty, continue.
                             continue;
                         }
-
+                        
+                        // Check if cell is in range
+                        float3 cellMin = float3(x, y, z) * CELL_WIDTH;
+                        float3 cellMax = cellMin + float3(CELL_WIDTH, CELL_WIDTH, CELL_WIDTH);
+                        float3 distToCell = clamp(x_i, cellMin, cellMax) - x_i; // component-wise clamp
+                        float distToCell2 = dot(distToCell, distToCell);
+                        if (distToCell2 > h2x4) {
+                          continue;
+                        }
+                        
+                        uint largeBoundCellIndex = cellPositionToLargeBoundIndex({ x, y, z });
                         // Loop through every particle within the cell
                         uint end = cellEnds[cellindex] + 1;
                         for (uint k = start; k < end; k++) {
                             const uint j = cellData[k].y;
-                            if (!alive[j]) {
+                            if (largeBoundCellIndex != largeBoundCellParticles[j]) {
                                 continue;
                             }
                             
@@ -180,6 +196,16 @@ kernel void density(device float3* positions,
 //        float newH = min(RESOLUTION_ETA * pow(mass_i / density, 1.f / 3), MAX_SMOOTHING_LENGTH);
         if (particlesInRange < PARTICLE_IN_RANGE_THRESHOLD) {
             newH = min(max(newH, h_i * 2), MAX_SMOOTHING_LENGTH);
+        }
+        
+        if (newH < h_i) {
+            max_bound = h_i;
+        } else {
+            min_bound = h_i;
+        }
+        
+        if (newH < min_bound or newH > max_bound) {
+            newH = 0.5 * (min_bound + max_bound);
         }
         
         eps = abs(newH - h_i) / h_i;
@@ -231,6 +257,16 @@ kernel void density(device float3* positions,
                     if (start == UINT_MAX) {
                         continue;
                     }
+                    
+                    // Check if cell is in range
+                    float3 cellMin = float3(x, y, z) * CELL_WIDTH;
+                    float3 cellMax = cellMin + float3(CELL_WIDTH, CELL_WIDTH, CELL_WIDTH);
+                    float3 distToCell = clamp(x_i, cellMin, cellMax) - x_i; // component-wise clamp
+                    float distToCell2 = dot(distToCell, distToCell);
+                    if (distToCell2 > h2x4) {
+                      continue;
+                    }
+                    
                     uint end = cellEnds[cellindex] + 1;
                     for (uint k = start; k < end; k++) {
                         const uint j = cellData[k].y;
@@ -276,22 +312,18 @@ kernel void density(device float3* positions,
     // Update our smoothing length, density and gradient terms
     h[ind] = h_i;
     densities[ind] = density;
-    gradientTerms[ind] = 1 / omega;
 
     // Apply our equations of state to update our pressure and sound speed
     float u = internalEnergies[ind];
-    float materialId = materialIds[ind];
+    int materialId = materialIds[ind];
 
-    float uCoord = log(u / ANEOS_MIN_U) / log(ANEOS_MAX_U / ANEOS_MIN_U);
-    float rhoCoord = log(density / ANEOS_MIN_RHO) / log(ANEOS_MAX_RHO / ANEOS_MIN_RHO);
-    float2 uv = float2(uCoord, rhoCoord);
-    uv = clamp(uv, float2(0.0), float2(1.0));
-    sampler textureSampler(mag_filter::linear, min_filter::linear, mip_filter::none, address::clamp_to_edge);
-    float4 pc = materialId == 400 ? texForesite.sample(textureSampler, uv) : texFe.sample(textureSampler, uv);
+    float4 pc = eos(materialId, u, density, texIron, texForesite, texFe, texHHe, texIce, texRock);
+
     pressures[ind] = pc.x;
     speedsOfSound[ind] = pc.y;
     temperatures[ind] = pc.z;
 
     // Calculate our balsara switch.
     balsara[ind] = velDiv / (velDiv + absCurl + 1e-4 * (pc.y / h_i));
+    gradientTerms[ind] = 1 / omega;
 }

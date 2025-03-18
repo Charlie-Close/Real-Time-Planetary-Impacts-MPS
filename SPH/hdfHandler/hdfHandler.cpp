@@ -236,6 +236,7 @@ void writeHDFFile(const std::string& filepath, const DataStruct& data) {
     writeDatasetScalar("SmoothingLengths", data.smoothingLengths);
     writeDatasetVec3("Velocities", data.velocities);
     writeDatasetInteger("ParticleIDs", data.particleIds);
+    writeDatasetScalar("Temperatures", data.temperatures);
 
     // Close the group and file
     H5Gclose(group_id);

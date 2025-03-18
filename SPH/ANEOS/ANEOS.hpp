@@ -29,6 +29,7 @@ struct ANEOSTable
 };
 
 ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resolution);
+ANEOSTable loadHMDataFromFile(const std::string &filePath, const int resolution);
 MTL::Texture* createRG32FloatTexture(MTL::Device* device, MTL::CommandQueue* commandQueue, const ANEOSTable& table);
 
 #endif /* ANEOS_hpp */

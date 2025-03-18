@@ -11,6 +11,7 @@
 		5B30939C2D593BCE00D18BF6 /* lodepng.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B30939B2D593BCE00D18BF6 /* lodepng.cpp */; };
 		5B30939F2D5A31D300D18BF6 /* Headless.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5B30939E2D5A31D300D18BF6 /* Headless.cpp */; };
 		5B3093A32D5BC6C900D18BF6 /* shuffle.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B3093A22D5BC6C900D18BF6 /* shuffle.metal */; };
+		5B39C87F2D878FC300D89E42 /* activate.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B39C87E2D878FC300D89E42 /* activate.metal */; };
 		5B49053E2D53CCDC0038674B /* M2L.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B49053D2D53CCDC0038674B /* M2L.metal */; };
 		5B4905402D53CD910038674B /* accept.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B49053F2D53CD910038674B /* accept.metal */; };
 		5B4905422D53CEEB0038674B /* derivatives.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5B4905412D53CEEB0038674B /* derivatives.metal */; };
@@ -78,9 +79,14 @@
 		5B30939D2D5A31D300D18BF6 /* Headless.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Headless.hpp; sourceTree = "<group>"; };
 		5B30939E2D5A31D300D18BF6 /* Headless.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Headless.cpp; sourceTree = "<group>"; };
 		5B3093A02D5A8D6100D18BF6 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
-		5B3093A12D5BA31C00D18BF6 /* demo_impact_n65.hdf5 */ = {isa = PBXFileReference; lastKnownFileType = file; path = demo_impact_n65.hdf5; sourceTree = "<group>"; };
 		5B3093A22D5BC6C900D18BF6 /* shuffle.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = shuffle.metal; sourceTree = "<group>"; };
 		5B30EE052D564DF600BAD748 /* helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = helpers.h; sourceTree = "<group>"; };
+		5B39C8782D874D4C00D89E42 /* ANEOS_iron_S20.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = ANEOS_iron_S20.txt; sourceTree = "<group>"; };
+		5B39C8792D874D5D00D89E42 /* HM80_HHe.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = HM80_HHe.txt; sourceTree = "<group>"; };
+		5B39C87A2D874D6500D89E42 /* HM80_ice.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = HM80_ice.txt; sourceTree = "<group>"; };
+		5B39C87B2D874D6D00D89E42 /* HM80_rock.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = HM80_rock.txt; sourceTree = "<group>"; };
+		5B39C87E2D878FC300D89E42 /* activate.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = activate.metal; sourceTree = "<group>"; };
+		5B39C8802D889FD300D89E42 /* eos.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = eos.h; sourceTree = "<group>"; };
 		5B45357B2D4F7AB7009F35F7 /* morton.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = morton.h; sourceTree = "<group>"; };
 		5B49053D2D53CCDC0038674B /* M2L.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = M2L.metal; sourceTree = "<group>"; };
 		5B49053F2D53CD910038674B /* accept.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = accept.metal; sourceTree = "<group>"; };
@@ -90,10 +96,8 @@
 		5B4905472D53CFCD0038674B /* P2M.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = P2M.metal; sourceTree = "<group>"; };
 		5B4905492D53D0070038674B /* helpers.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = helpers.metal; sourceTree = "<group>"; };
 		5B49054B2D53D27A0038674B /* L2L.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = L2L.metal; sourceTree = "<group>"; };
-		5B49054E2D53F2890038674B /* demo_impact_n60.hdf5 */ = {isa = PBXFileReference; lastKnownFileType = file; path = demo_impact_n60.hdf5; sourceTree = "<group>"; };
 		5B4ED79F2D4BBE3F00F0505B /* demo_impact_n50.hdf5 */ = {isa = PBXFileReference; lastKnownFileType = file; path = demo_impact_n50.hdf5; sourceTree = "<group>"; };
 		5B4F71872D762CCF00EBAF49 /* MatrixMath.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MatrixMath.cpp; sourceTree = "<group>"; };
-		5B4F71892D785A5700EBAF49 /* demo_impact_n60_0023.hdf5 */ = {isa = PBXFileReference; lastKnownFileType = file; path = demo_impact_n60_0023.hdf5; sourceTree = "<group>"; };
 		5B51FEF62D4D4E780085BF37 /* sort.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = sort.metal; sourceTree = "<group>"; };
 		5B52166A2D47E114003F7B44 /* ANEOS.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = ANEOS.hpp; sourceTree = "<group>"; };
 		5B52166B2D47E114003F7B44 /* ANEOS.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ANEOS.cpp; sourceTree = "<group>"; };
@@ -139,7 +143,6 @@
 		5B60869F2D43D3D90037C449 /* ParticleMesh.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = ParticleMesh.hpp; sourceTree = "<group>"; };
 		5B6086A02D43D3D90037C449 /* ParticleMesh.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ParticleMesh.cpp; sourceTree = "<group>"; };
 		5B702C6A2D553DDD00DEE8C7 /* Parameters.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Parameters.h; sourceTree = "<group>"; };
-		5BCC04302D639BDD00FD3488 /* demo_impact_n70.hdf5 */ = {isa = PBXFileReference; lastKnownFileType = file; path = demo_impact_n70.hdf5; sourceTree = "<group>"; };
 		5BE2807A2D7DA5CB006734F3 /* Snapshotter.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Snapshotter.hpp; sourceTree = "<group>"; };
 		5BE2807B2D7DA5CB006734F3 /* Snapshotter.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Snapshotter.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -209,13 +212,13 @@
 				5B5C9BBC2D411FEE003302F2 /* main.cpp */,
 				5B5C9BEF2D412674003302F2 /* hdfHandler */,
 				5B4ED79F2D4BBE3F00F0505B /* demo_impact_n50.hdf5 */,
-				5B3093A12D5BA31C00D18BF6 /* demo_impact_n65.hdf5 */,
-				5B49054E2D53F2890038674B /* demo_impact_n60.hdf5 */,
-				5B4F71892D785A5700EBAF49 /* demo_impact_n60_0023.hdf5 */,
-				5BCC04302D639BDD00FD3488 /* demo_impact_n70.hdf5 */,
 				5B5C9C152D414145003302F2 /* demo_impact_n40.hdf5 */,
 				5B52166D2D47E1B6003F7B44 /* ANEOS_forsterite_S19.txt */,
+				5B39C8782D874D4C00D89E42 /* ANEOS_iron_S20.txt */,
 				5B52166E2D4A5170003F7B44 /* ANEOS_Fe85Si15_S20.txt */,
+				5B39C87A2D874D6500D89E42 /* HM80_ice.txt */,
+				5B39C8792D874D5D00D89E42 /* HM80_HHe.txt */,
+				5B39C87B2D874D6D00D89E42 /* HM80_rock.txt */,
 				5B702C6A2D553DDD00DEE8C7 /* Parameters.h */,
 			);
 			path = SPH;
@@ -322,6 +325,7 @@
 				5B5C9C132D413649003302F2 /* accelerations.metal */,
 				5B51FEF62D4D4E780085BF37 /* sort.metal */,
 				5B3093A22D5BC6C900D18BF6 /* shuffle.metal */,
+				5B39C87E2D878FC300D89E42 /* activate.metal */,
 			);
 			path = Shaders;
 			sourceTree = "<group>";
@@ -350,6 +354,7 @@
 				5B45357B2D4F7AB7009F35F7 /* morton.h */,
 				5B5C9C212D416B78003302F2 /* cellsToScan.h */,
 				5B5C9C102D413469003302F2 /* kernels.h */,
+				5B39C8802D889FD300D89E42 /* eos.h */,
 			);
 			path = utils;
 			sourceTree = "<group>";
@@ -451,6 +456,7 @@
 			files = (
 				5B5C9C1B2D41611D003302F2 /* octree.cpp in Sources */,
 				5B4905402D53CD910038674B /* accept.metal in Sources */,
+				5B39C87F2D878FC300D89E42 /* activate.metal in Sources */,
 				5B5C9BE92D412373003302F2 /* Particles.cpp in Sources */,
 				5B4905482D53CFCD0038674B /* P2M.metal in Sources */,
 				5B49054A2D53D0070038674B /* helpers.metal in Sources */,

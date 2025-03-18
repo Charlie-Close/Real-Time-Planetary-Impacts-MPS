@@ -22,6 +22,8 @@ public:
     Headless();
     ~Headless();
     
+    void run();
+    
     void step();
     float getTime();
 

@@ -64,10 +64,9 @@ float Headless::getTime() {
 
 bool Headless::takeSnapshot() {
     float time = getTime();
-    const int step = 50;
     if (time > nextSnapshot) {
-        int initialSnapshot = round(START_SNAPSHOT * (1000.f / step));
-        int currentFrame = round(nextSnapshot / step);
+        int initialSnapshot = round(START_SNAPSHOT * (1000.f / SNAPSHOT_PERIOD_SECONDS));
+        int currentFrame = round(nextSnapshot / SNAPSHOT_PERIOD_SECONDS);
         while (true) {
             MTL::CommandBufferDescriptor* cmdDesc = MTL::CommandBufferDescriptor::alloc();
             cmdDesc->setErrorOptions(MTL::CommandBufferErrorOptionEncoderExecutionStatus);
@@ -89,21 +88,21 @@ bool Headless::takeSnapshot() {
             snapshotters[i]->takeSnapshot(initialSnapshot + currentFrame);
         }
         
-        nextSnapshot += step;
-        return (nextSnapshot - step) % 1000 == 0;
+        nextSnapshot += SNAPSHOT_PERIOD_SECONDS;
+        return (nextSnapshot - SNAPSHOT_PERIOD_SECONDS) % 1000 == 0 and time > 500;
     }
     return false;
 }
 
 void Headless::step()
 {
-    
     if (STEPS_PER_FRAME == 0) {
         MTL::CommandBufferDescriptor* cmdDesc = MTL::CommandBufferDescriptor::alloc();
         cmdDesc->setErrorOptions(MTL::CommandBufferErrorOptionEncoderExecutionStatus);
         while (true) {
             MTL::CommandBuffer* pCmd1 = _commandQueue->commandBuffer(cmdDesc);
             compute->sort(pCmd1);
+            compute->activatePass(pCmd1);
             pCmd1->commit();
             pCmd1->waitUntilCompleted();
             if (pCmd1->status() != MTL::CommandBufferStatusCompleted) {
@@ -128,7 +127,7 @@ void Headless::step()
             for (int i = 0; i < DENSITY_GRADIENT_SETTLING_ITTERATIONS; i++) {
                 while (true) {
                     MTL::CommandBuffer* pCmd3 = _commandQueue->commandBuffer(cmdDesc);
-                    compute->densityPass(pCmd3);
+                    compute->densityPass(pCmd3, false);
                     pCmd3->commit();
                     pCmd3->waitUntilCompleted();
                     if (pCmd3->status() != MTL::CommandBufferStatusCompleted) {
@@ -155,6 +154,7 @@ void Headless::step()
         while (true) {
             MTL::CommandBuffer* pCmd4 = _commandQueue->commandBuffer(cmdDesc);
             compute->accelerationPass(pCmd4);
+            compute->accelerationStepPass(pCmd4);
             compute->stepPass(pCmd4);
             pCmd4->commit();
             pCmd4->waitUntilCompleted();
@@ -173,15 +173,17 @@ void Headless::step()
         
         for (int i = 0; i < STEPS_PER_FRAME; i++) {
             compute->sort(pCmd);
+            compute->activatePass(pCmd);
             compute->gravitationalPass(pCmd);
             if (_frame == 0) {
                 // First frame loop density to get smooth gradients
                 for (int j = 0; j < DENSITY_GRADIENT_SETTLING_ITTERATIONS; j++) {
-                    compute->densityPass(pCmd);
+                    compute->densityPass(pCmd, false);
                 }
             }
             compute->densityPass(pCmd);
             compute->accelerationPass(pCmd);
+            compute->accelerationStepPass(pCmd);
             compute->stepPass(pCmd);
             _frame ++;
         }
@@ -197,4 +199,35 @@ void Headless::step()
     }
 }
 
-
+void Headless::run() {
+    int i = 0;
+    auto start = std::chrono::high_resolution_clock::now();
+    auto const constStart = start;
+    float simTimStart = getTime();
+    const float constSimStart = simTimStart;
+    int framesPerCout = HEADLESS_ITTERATION_RATE_REFRESH * fmax(1, STEPS_PER_FRAME);
+    bool run = true;
+    while (run) {
+        step();
+        if (i == HEADLESS_ITTERATION_RATE_REFRESH) {
+            auto end = std::chrono::high_resolution_clock::now();
+            float simTimeEnd = getTime();
+            std::chrono::duration<double> elapsed = end - start;
+            std::chrono::duration<double> totalElapsed = end - constStart;
+            float simElapsed = simTimeEnd - simTimStart;
+            float fps = (float)framesPerCout / elapsed.count();
+            float secsPerSecs = simElapsed / elapsed.count();
+            float avgSecsPerSecs = (simTimeEnd - constSimStart) / totalElapsed.count();
+            float dtAvg = simElapsed / framesPerCout;
+            std::cout << "Steps Per Second: " << std::to_string(fps);
+            std::cout << "\nSimulations seconds per second: " << std::to_string(secsPerSecs);
+            std::cout << "\nAverage simulations seconds per second: " << std::to_string(avgSecsPerSecs);
+            std::cout << "\nAverage dt: " << std::to_string(dtAvg);
+            std::cout << "\nSimulation time: " << std::to_string(START_SNAPSHOT * 1000 + simTimeEnd) << "\n" << std::endl;
+            i = 0;
+            start = std::chrono::high_resolution_clock::now();
+            simTimStart = simTimeEnd;
+        }
+        i++;
+    }
+}

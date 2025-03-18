@@ -35,10 +35,7 @@ static inline bool checkAndAddLocalExpansion(device int* treeStructure, device M
     int nodeDataPointer = treeStructure[toScan + 1];
     Multipole nodeMp = multipoles[nodeDataPointer];
     if (forceAccept or gravity_M2L_accept(mp, nodeMp)) {
-        Local nodeLocal = M2L(local.pos, nodeMp);
-        for (uint j = 0; j < N_EXPANSION_TERMS; j++) {
-            local.expansion[j] += nodeLocal.expansion[j];
-        }
+        M2L(nodeMp, local);
         return true;
     }
     return false;
@@ -50,11 +47,6 @@ static inline void localToLeaf(device int* treeStructure, device bool* active, d
     int end = start + nParticles;
     for (int i = start; i < end; i++) {
         int particlePointer = treeStructure[i];
-        if (!active[particlePointer]) {
-            // If particle is inactive, we skip it.
-            continue;
-        }
-        // Otherwise, sum over contributions from surrounding particles.
         float3 x_i = positions[particlePointer];
         float3 particleAcceleration = L2P(local, x_i);
                     

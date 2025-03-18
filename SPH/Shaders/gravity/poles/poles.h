@@ -84,7 +84,8 @@ float3 L2P(Local local, float3 pos);
 Multipole M2M(device int* treeStructure, device Multipole* multipoles, device bool* active, device unsigned long* parentIndexes, uint index, int treePointer);
 void L2L(device int* treeStructure, device Multipole* multipoles, device Local* locals, thread Multipole& mp, thread Local& local, int treePointer);
 Derivatives derivatives(float3 vec, float eps);
-Local M2L(float3 x, Multipole mp);
+void M2L(thread Multipole& mp, thread Local& local);
+//Local M2L(float3 x, Multipole mp);
 bool gravity_M2L_accept(Multipole A, Multipole B);
 
 constant int binomial_coeffs[9][9] = {
@@ -95,8 +96,5 @@ constant int binomial_coeffs[9][9] = {
     {1, 8, 28, 56, 70, 56, 28, 8, 1}
 
 };
-
-
-
 
 #endif /* poles_h */

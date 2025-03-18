@@ -7,6 +7,7 @@
 
 #include <metal_stdlib>
 #include "utils/morton.h"
+#include "utils/cellsToScan.h"
 #include "../Parameters.h"
 using namespace metal;
 
@@ -14,32 +15,44 @@ using namespace metal;
 
 kernel void hash(device float3* positions,
                  device uint2* cellParticles,
+                 device uint* largeBoundCellParticles,
                  uint index [[thread_position_in_grid]])
 {
     // Get the cell index of each particle and store it in an array which we will then sort.
     float3 normalised = positions[index] / CELL_WIDTH;
-    int cellsPerDimension = (1 << CELL_POWER);
-    int3 pos = {
-        (int)floor(normalised.x) % cellsPerDimension,
-        (int)floor(normalised.y) % cellsPerDimension,
-        (int)floor(normalised.z) % cellsPerDimension
+        
+    int3 intPos = {
+        (int)floor(normalised.x),
+        (int)floor(normalised.y),
+        (int)floor(normalised.z)
     };
     
-    if (pos.x < 0) {
-        pos.x += cellsPerDimension;
-    }
-    if (pos.y < 0) {
-        pos.y += cellsPerDimension;
-    }
-    if (pos.z < 0) {
-        pos.z += cellsPerDimension;
-    }
+    cellParticles[index] = { cellPositionToIndex(intPos), index };
+    largeBoundCellParticles[index] = cellPositionToLargeBoundIndex(intPos);
     
-    // Interleave the bits to get a Morton index:
-    uint cellIndex = morton3D((uint) pos.x,
-                              (uint) pos.y,
-                              (uint) pos.z);
-    cellParticles[index] = { cellIndex, index };
+//    int cellsPerDimension = (1 << CELL_POWER);
+//    int3 rounded = {
+//        (int)floor(normalised.x) % cellsPerDimension,
+//        (int)floor(normalised.y) % cellsPerDimension,
+//        (int)floor(normalised.z) % cellsPerDimension
+//    };
+//    
+//    
+//    if (rounded.x < 0) {
+//        rounded.x += cellsPerDimension;
+//    }
+//    if (rounded.y < 0) {
+//        rounded.y += cellsPerDimension;
+//    }
+//    if (rounded.z < 0) {
+//        rounded.z += cellsPerDimension;
+//    }
+//    
+//    // Interleave the bits to get a Morton index:
+//    uint cellIndex = morton3D((uint) rounded.x,
+//                              (uint) rounded.y,
+//                              (uint) rounded.z);
+//    cellParticles[index] = { cellIndex, index };
 }
 
 kernel void hist(device uint2* cellParticles,
@@ -125,15 +138,6 @@ kernel void sort(device uint2* cellParticles,
     uint blockOffset = block == 0 ? 0 : bucketHist[(block - 1) * SORTING_BUCKET_NUMBER + bucketIndex]; // where the block lies in the bucket
     uint subBlockOffset = particleOffsets[index]; // where the particle lies in the block
     newCellParticles[bOff + subBlockOffset + blockOffset] = cellParticles[index]; // Put together.
-}
-
-kernel void initialise(device uint* cellStarts,
-                       device uint* cellEnds,
-                       uint index [[thread_position_in_grid]]) {
-    // Now we have our sorted array, we want to know where in the array we can find each cell.
-    // We store a cell start and a cell end value which we initialize as below, to show it is empty.
-    cellStarts[index] = UINT_MAX;
-    cellEnds[index] = 0;
 }
 
 kernel void findCellPositions(device uint2* sortedCellParticles,

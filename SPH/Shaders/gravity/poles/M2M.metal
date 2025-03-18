@@ -201,9 +201,10 @@ Multipole M2M(device int* treeStructure, device Multipole* multipoles, device bo
         mp.min = min(mp.min, childMp.min);
     }
     
-    float3 dims = mp.max - mp.min;
-    mp.size = max3(dims.x, dims.y, dims.z);
+//    float3 dims = mp.max - mp.min;
+//    mp.size = max3(dims.x, dims.y, dims.z);
     mp.pos /= mass;
+    mp.size = length(max(abs(mp.max - mp.pos), abs(mp.min - mp.pos)));
     
     // Second pass: get our multipole expansion. If all are children are leaves, we sync them
     for (int i = start; i < end; i++) {
@@ -220,17 +221,6 @@ Multipole M2M(device int* treeStructure, device Multipole* multipoles, device bo
         Multipole transformed = transformMultipole(childMp, r);
         for (uint j = 0; j < N_EXPANSION_TERMS; j++) {
             mp.expansion[j] += transformed.expansion[j];
-        }
-        
-        if (allLeaves and mp.active and not childMp.active) {
-            // Activate child to sync it with neighbouring leaves. Improves time stepping
-            multipoles[childDataPointer].active = true;
-            int nParticles = treeStructure[childPointer];
-            int childStart = childPointer + 2;
-            int childEnd = start + nParticles;
-            for (int j = childStart; j < childEnd; j++) {
-                active[treeStructure[j]] = true;
-            }
         }
     }
     // This is for multipole acceptance criterion

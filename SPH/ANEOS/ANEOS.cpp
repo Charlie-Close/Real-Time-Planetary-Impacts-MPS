@@ -177,6 +177,92 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
     return table;
 }
 
+ANEOSTable loadHMDataFromFile(const std::string &filePath, const int resolution)
+{
+    ANEOSTable table;
+    table.resolution = 100;
+
+    std::ifstream infile(filePath);
+    if (!infile.is_open()) {
+        throw std::runtime_error("Could not open data file: " + filePath);
+    }
+    
+    // Skip header lines
+    std::string line;
+    for (int i = 0; i < 12; i++) {
+        std::getline(infile, line);
+    }
+        
+    int numRho, numU;
+    float log_rho_min, log_rho_max, log_u_min, log_u_max;
+    {
+        std::getline(infile, line);
+        std::istringstream iss(line);
+        iss >> log_rho_min >> log_rho_max >> numRho >> log_u_min >> log_u_max >> numU;
+    }
+    
+    float p[100 * 100];
+    {
+        int count = 0;
+        while (count < 100 * 100 && std::getline(infile, line)) {
+            std::istringstream iss(line);
+            float val;
+            while (iss >> val && count < 100 * 100) {
+                p[count++] = val;
+            }
+        }
+    }
+    float T[100 * 100];
+    {
+        int count = 0;
+        while (count < 100 * 100 && std::getline(infile, line)) {
+            std::istringstream iss(line);
+            float val;
+            while (iss >> val && count < 100 * 100) {
+                T[count++] = val;
+            }
+        }
+    }
+    float rho[100];
+    for (int i = 0; i < numRho; i++) {
+        float log_rho_i = log_rho_min + i * (log_rho_max - log_rho_min) / (numRho - 1);
+        rho[i] = std::exp(log_rho_i);
+    }
+    float soundSpeed[100 * 100];
+    for (int j = 0; j < numU; j++) {
+        for (int i = 0; i < numRho; i++) {
+            float pressure = p[i*numU + j];
+            float density = rho[i];
+            float dp_drho = 1.3 * pressure / density;
+//            if (i == 0) { // forward difference
+//                dp_drho = ( p[(j+1)*numU + i] - p[j*numU + i] ) / ( rho[i+1] - rho[i] );
+////                dp_drho = ( p[(i+1)*numU + j] - p[i*numU + j] ) / ( rho[i+1] - rho[i] );
+//            } else if (i == numRho - 1) { // backward difference
+//                dp_drho = ( p[j*numU + i] - p[(j-1)*numU + i] ) / ( rho[i] - rho[i-1] );
+////                dp_drho = ( p[i*numU + j] - p[(i-1)*numU + j] ) / ( rho[i] - rho[i-1] );
+//            } else { // central difference
+//                dp_drho = ( p[(j+1)*numU + i] - p[(j-1)*numU + i] ) / ( rho[i+1] - rho[i-1] );
+////                dp_drho = ( p[(i+1)*numU + j] - p[(i-1)*numU + j] ) / ( rho[i+1] - rho[i-1] );
+//            }
+            // Ensure dp_drho is positive; otherwise, you might want to flag an error.
+            if (dp_drho < 0) {
+                throw std::runtime_error("Negative dp/drho encountered at i=" + std::to_string(i) + " j=" + std::to_string(j));
+            }
+            soundSpeed[i*numU + j] = std::sqrt(dp_drho);
+        }
+    }
+    
+    table.data = new simd_float3[100 * 100];
+    for (int i = 0; i < 100 * 100; i++) {
+        table.data[i] = { p[i] * pow(10.f, -18.f), soundSpeed[i] * 1e-6f, T[i] };
+    }
+        
+    return table;
+}
+
+
+
+
 // Turns our ANEOS table into a texture.
 MTL::Texture* createRG32FloatTexture(MTL::Device* device, MTL::CommandQueue* commandQueue, const ANEOSTable& table)
 {

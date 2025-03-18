@@ -117,6 +117,7 @@ vertex VertOut vertexSphere(device const float3* vertexData [[buffer(0)]],
     float gradMag = length(gradRho);
     float rho = densities[instanceId];
     float weight = gradMag > 1e-12 ? clamp(1000 * (rho - 0.001), 0.f, 1.f) : 0;
+//    float weight = gradMag > 1e-12 ? clamp(2000 * rho, 0.f, 1.f) : 0;
     o.weight = min(weight, .9f);
     o.rhoGradNorm = gradRho / gradMag;
     float size = PARTICLE_SIZE * rho * h[instanceId];
@@ -127,12 +128,22 @@ vertex VertOut vertexSphere(device const float3* vertexData [[buffer(0)]],
     float4 worldPosition = float4(vertPos + positions[instanceId], 1.0);
     o.position = cameraMatrix * worldPosition;
     o.lightspacePos = lightMatrix * (worldPosition - 8 * float4(lightDir, 0) * size); // step in light direction to stop self shadowing
-        
-    if (materialIds[instanceId] == 402 or materialIds[instanceId] == 100) {
-        o.colour = half3(0.2f, 0.2f, 0.25f);
-    } else {
-        o.colour = half3(0.3f, 0.3f, 0.35f);
+    
+    switch (materialIds[instanceId]) {
+        case (201): {
+            o.colour = half3(0.05, 0.05, .7);
+            break;
+        } default: {
+            o.colour = half3(0.3f, 0.3f, 0.35f);
+            break;
+        }
     }
+        
+//    if (materialIds[instanceId] == 402 or materialIds[instanceId] == 100) {
+//        o.colour = half3(0.2f, 0.2f, 0.25f);
+//    } else {
+//        o.colour = half3(0.3f, 0.3f, 0.35f);
+//    }
     
     float T = temperatures[instanceId];
     float emmision = pow(clamp(T / 8000, 0.f, 1.f), 4);
@@ -227,11 +238,12 @@ kernel void determineVisibility(device float3* positions,
                                 constant float3& cameraPos,
                                 uint index [[thread_position_in_grid]]) {
     float3 x_i = positions[index];
+    float h_i = h[index];
     float3 densityGradient = normals[index];
     float rho = densities[index];
     
     float g2 = length_squared(densityGradient);
-    bool visible;
+    bool visible = true;
     if (g2 > 1e-12 and rho > 0.0005) {
         float g = sqrt(g2);
         float g1 = 1 / g;

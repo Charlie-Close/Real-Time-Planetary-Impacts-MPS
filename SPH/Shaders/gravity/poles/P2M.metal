@@ -31,7 +31,7 @@ Multipole P2M(device int* treeStructure, device float* masses, device float3* po
         float3 p_position = positions[p];
         float p_h = h[p];
         float p_eta = min(p_h * GAMMA * PLUMBER_EQUIVALENT, GRAVITY_SMOOTHING_LENGTH);
-        int isActive = (*globalTime) + dt >= nextActiveTime[p];
+        int isActive = active[p];
         if (!mp.active and isActive) {
             mp.active = true;
         }
@@ -41,14 +41,7 @@ Multipole P2M(device int* treeStructure, device float* masses, device float3* po
         
         mp.expansion[M] += p_mass;
         mp.pos += p_position * p_mass;
-        if (isActive) {
-            mp.minGrav = min(mp.minGrav, grav[p]);
-        }
-    }
-    
-    for (int i = start; i < end; i++) {
-        int p = treeStructure[i];
-        active[p] = mp.active;
+        mp.minGrav = min(mp.minGrav, grav[p]);
     }
     
     mp.pos /= mp.expansion[M];
@@ -136,9 +129,10 @@ Multipole P2M(device int* treeStructure, device float* masses, device float3* po
     mp.expansion[XYZZ] *= 0.5;
 #endif
     
-    float3 dims = mp.max - mp.min;
-    mp.size = max3(dims.x, dims.y, dims.z);
-    
+//    float3 dims = mp.max - mp.min;
+//    mp.size = max3(dims.x, dims.y, dims.z);
+    mp.size = length(max(abs(mp.max - mp.pos), abs(mp.min - mp.pos)));
+
     addPowers(mp);
     
     return mp;

@@ -76,6 +76,8 @@ kernel void downPass(device float3* positions,
                      device int* unscannedIndexesOut,
                      device float* gravNorm,
                      device bool* active,
+                     device int& parentStride,
+                     device int& stride,
                      uint index [[thread_position_in_grid]])
 {
     int treePointer = pointers[index];
@@ -97,8 +99,8 @@ kernel void downPass(device float3* positions,
     
     // Get where we are going to store our unchecked nodes. Everytime we write to this array, we
     // increment our output pointer.
-    unsigned long outputPointer = index * MAX_UNCHECKED_POINTERS;
-    unsigned long maxOutputPointer = (index + 1) * MAX_UNCHECKED_POINTERS;
+    unsigned long outputPointer = index * stride;
+    unsigned long maxOutputPointer = (index + 1) * stride;
     
     int nParticles = treeStructure[treePointer];
     // We obviously wont check ourselves, however our children will need to check each other, so we need
@@ -110,8 +112,8 @@ kernel void downPass(device float3* positions,
     
     // Where our parent will have stored it's unchecked nodes
     unsigned long parentIndex = parentIndexes[dataPointer];
-    unsigned long startScan = parentIndex * MAX_UNCHECKED_POINTERS;
-    unsigned long endScan = (parentIndex + 1) * MAX_UNCHECKED_POINTERS;
+    unsigned long startScan = parentIndex * parentStride;
+    unsigned long endScan = (parentIndex + 1) * parentStride;
     
     // Stage 1: calculate our local expansion.
     Local local = locals[dataPointer];

@@ -16,6 +16,11 @@ bool gravity_M2L_accept(Multipole A, Multipole B) {
     /* Sizes of the multipoles */
     const float rho_A = A.size;
     const float rho_B = B.size;
+    
+    if (rho_A + rho_B < 1e-12) {
+        return true;
+    }
+    
     const float r2 = length_squared(A.pos - B.pos);
     /* Get the sum of the multipole sizes */
     const float rho_sum = rho_A + rho_B;
@@ -35,22 +40,14 @@ bool gravity_M2L_accept(Multipole A, Multipole B) {
     for (int n = 0; n <= p; ++n) {
         E_BA_term += binomial_coeffs[p][n] * B.power[n] * integer_powf(rho_A, p - n);
     }
-    E_BA_term *= 8.f;
-    if (rho_A + rho_B > 0.f) {
-        E_BA_term *= rho_max;
-        E_BA_term /= (rho_A + rho_B);
-    }
+    
+    E_BA_term *= 8 * rho_max;
+    E_BA_term /= (rho_A + rho_B);
     
     /* Compute r^p = (r^2)^(p/2) */
     const float r_to_p = integer_powf(r2, (p / 2));
-
-    float f_MAC_inv = r2;
-
-    /* Get the mimimal acceleration in A */
-    const float min_a_grav = A.minGrav;
-
     /* Condition 2: The contribution is accurate enough
      * (E_BA * (1 / r^(p)) * ((1 / r^2) * W) < eps * a_min) */
-    return E_BA_term < GRAVITY_ETA * min_a_grav * r_to_p * f_MAC_inv;
+    return E_BA_term < GRAVITY_ETA * A.minGrav * r_to_p * r2;
 }
 

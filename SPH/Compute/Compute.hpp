@@ -46,8 +46,10 @@ public:
     // Public functions
     void updateOctreeBuffer(MTL::Device* device);
     void gravitationalPass(MTL::CommandBuffer* commandBuffer);
-    void densityPass(MTL::CommandBuffer* commandBuffer);
+    void activatePass(MTL::CommandBuffer* commandBuffer);
+    void densityPass(MTL::CommandBuffer* commandBuffer, bool step = true);
     void accelerationPass(MTL::CommandBuffer* commandBuffer);
+    void accelerationStepPass(MTL::CommandBuffer* commandBuffer);
     void stepPass(MTL::CommandBuffer* commandBuffer);
     void sort(MTL::CommandBuffer* commandBuffer);
     bool drawSnapshot(MTL::CommandQueue* commandQueue);
@@ -88,8 +90,7 @@ private:
     std::vector<int> octreeData;
     int nodeValues;
     bool updating = false;
-    long prevGravDataSizei = 0;
-    long prevGravDataSizej = 0;
+    long prevGravDataSize = 0;
     long prevNodeValues = 0;
     
     // Cells and sorting
@@ -97,6 +98,7 @@ private:
     int cellsPerDim;
     float cellSize;
     int framesSinceLastShuffled = 0;
+    int framesSinceLastActivated = 0;
     
     int nextSnapshot = 0;
 
@@ -107,14 +109,15 @@ private:
     MTL::ComputePipelineState* _scanPSO;
     MTL::ComputePipelineState* _sumPSO;
     MTL::ComputePipelineState* _sortPSO;
-    MTL::ComputePipelineState* _initialisePSO;
     MTL::ComputePipelineState* _findPosPSO;
     // Gravity up and down pass
     MTL::ComputePipelineState* _upTreePSO;
     MTL::ComputePipelineState* _downTreePSO;
     // Hydro passes
+    MTL::ComputePipelineState* _activatePSO;
     MTL::ComputePipelineState* _densityPSO;
     MTL::ComputePipelineState* _accelerationPSO;
+    MTL::ComputePipelineState* _accelerationStepPSO;
     MTL::ComputePipelineState* _mStepPSO;
     // Data shuffling
     MTL::ComputePipelineState* _shuffleFloat;
@@ -127,7 +130,10 @@ private:
 
     // Buffers
     MTL::Buffer* _velocityBuffer;
+    MTL::Buffer* _halfVelocities;
     MTL::Buffer* _accelerationBuffer;
+    MTL::Buffer* _accelerationBuffer1;
+    MTL::Buffer* _gravAccelerationBuffer;
     MTL::Buffer* _internalEnergyBuffer;
     MTL::Buffer* _pressureBuffer;
     MTL::Buffer* _gradientTermsBuffer;
@@ -144,6 +150,7 @@ private:
     MTL::Buffer* _cellArrayj;
     MTL::Buffer* _cellStart;
     MTL::Buffer* _cellEnd;
+    MTL::Buffer* _largeParticleCells;
     MTL::Buffer* _tree;
     MTL::Buffer* _treeTmp;
     MTL::Buffer* _multipoleExpansions;
@@ -163,8 +170,12 @@ private:
     MTL::Buffer* _particleIds;
 
     // ANEOS textures
+    MTL::Texture* _iron;
     MTL::Texture* _forsterite;
     MTL::Texture* _Fe85Si15;
+    MTL::Texture* _HHe;
+    MTL::Texture* _ice;
+    MTL::Texture* _rock;
 };
 
 #endif /* Compute_hpp */

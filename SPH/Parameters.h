@@ -9,7 +9,9 @@
 #define Parameters_h
 
 // Hydro
+//#define VISCOSITY_ALPHA 1.5f
 #define VISCOSITY_ALPHA 1.5f
+#define VISCOSITY_BETA 3.f
 #define DENSITY_ETA .005f // half a percent error
 #define MAX_SMOOTHING_LENGTH 1.f
 #define MAX_DENSITY_NR_ITTERATIONS 50
@@ -27,31 +29,28 @@
 
 // Time stepping
 #define CFL .2f
-#define tf .2f
-#define DT0 32.f
-#define R_MAX 12
-#define DT_MIN1 (DT0 / (1 << R_MAX))
-#define DT_MIN 1 / DT_MIN1
-#define STEPS_PER_FRAME 1 // Can set to 0 for headless mode to split frame up into multiple steps
+#define MIN_DT 0.01f
+#define MAX_DT 100.f
+#define STEPS_PER_FRAME 3 // Can set to 0 for headless mode to split frame up into multiple steps
 //#define WENDLAND_C2_KERNEL
 #define CUBIC_SPLINE_KERNEL
 //#define QUARTIC_SPLINE_KERNEL
 
 // Gravity
 #define GRAVITY_ETA .005f // half a percent error
-#define P 3 // Power of multipole expansion (max is 4). Higher is faster at lower etas.
+#define P 2 // Power of multipole expansion (max is 4). Higher is faster at lower etas.
 #define N_EXPANSION_TERMS ((P+1)*(P+2)*(P+3)/6)
 #define MAX_TREE_DEPTH 100
 #define GRAVITY_SMOOTHING_LENGTH .48f
 #define PLUMBER_EQUIVALENT 3
-#define GRAVITY_MAX_RECURSION 2
-#define MAX_UNCHECKED_POINTERS 512
+#define GRAVITY_MAX_RECURSION 3
+#define MAX_UNCHECKED_POINTERS 32 // For FMM, max pointers at lowest level
 #define MAX_CHILDREN_IN_LEAF 8
 #define EXTRA_MEMORY_MULTIPLIER 1.05 // When claiming memory for an octree, claim some extra so if our tree grows, we don't need to reclaim
 #define RED_MEMEORY_MULTIPLIER 0.8 // Scale memory down if we can
 
 // Cells and sorting
-#define CELL_WIDTH 0.3f
+#define CELL_WIDTH .2f
 #define CELL_POWER 8 // total number of cells is 2^(3 * CELL_POWER)
 #define SORTING_BLOCK_SIZE 256
 #define SORTING_MASK_LENGTH 8
@@ -62,35 +61,52 @@
 
 // File
 //#define FILEPATH "demo_impact_n60.hdf5"
+//#define FILEPATH "saves_n60/state_8.hdf5"
 //#define FILEPATH "demo_impact_n60_0023.hdf5"
 //#define FILEPATH "demo_impact_n65.hdf5"
 //#define FILEPATH "demo_impact_n70.hdf5"
-//#define FILEPATH "saves_n70_v2/state_5.hdf5"
+//#define FILEPATH "demo_impact_n75.hdf5"
+//#define FILEPATH "saves_n75/state_2.hdf5"
+//#define FILEPATH "saves_n70_v2/state_3.hdf5"
 #define FILEPATH "demo_impact_n50.hdf5"
 //#define FILEPATH "demo_impact_n40.hdf5"
-// #define FILEPATH "saves_n70_v2/state_54.hdf5"
+// #define FILEPATH "saves_n70_v3/state_107.hdf5"
+//#define FILEPATH "mercury_n50.hdf5"
+//#define FILEPATH "mercury_n50/state_35.hdf5"
+//#define FILEPATH "venus_n50.hdf5"
+//#define FILEPATH "earth_n50.hdf5"
+//#define FILEPATH "mars_n50.hdf5"
+//#define FILEPATH "jupiter_n50.hdf5"
+//#define FILEPATH "saturn_n50.hdf5"
+//#define FILEPATH "uranus_n50.hdf5"
+//#define FILEPATH "neptune_n50.hdf5"
+//#define FILEPATH "neptune_n50/state_150.hdf5"
+//#define FILEPATH "demo_target_n50.hdf5"
 
 // Rendering
 #define PARTICLE_SIZE 150
+//#define PARTICLE_SIZE 350
 #define PARTICLE_SUBDIVITIONS 0
 #define STARTING_POSITION 315, 355, 100
 #define STARTING_PITCH -10
 #define STARTING_YAW 90
 #define LIGHT_DIRECTION -1.0, -1.0, 0.5
-#define SHADOW_MAP_RESOLUTION 1024
-#define DENSITY_GRADIENT_SETTLING_ITTERATIONS 5
+#define SHADOW_MAP_RESOLUTION 4096
+#define DENSITY_GRADIENT_SETTLING_ITTERATIONS 3
+#define ACTIVATE_ALL_STEPS 256
 
 // Headless mode
 #define HEADLESS false
-#define SNAPSHOT_RESOLUTION 2048
+#define SNAPSHOT_RESOLUTION 4096
 #define HEADLESS_ITTERATION_RATE_REFRESH 16
 #define START_SNAPSHOT 0 // if running from a saved state
-#define SNAPSHOT_DIR "snapshots_n50"
-#define SAVES_DIR "saves_n50"
+#define SNAPSHOT_DIR "snapshots_n70"
+#define SAVES_DIR "saves_n70"
 #define N_SNAPSHOTTERS 4
 #define POSITIONS { (simd::float3){315, 355, 100}, (simd::float3){350, 355, 260}, (simd::float3){262, 362, 280}, (simd::float3){248, 306, 238} }
 #define PITCHES { -10, -30, -34, 3 }
-#define YAWS { 90, 120, 40, 48 }
+#define YAWS { 90, 120, 40, 53 }
+#define SNAPSHOT_PERIOD_SECONDS 25
 
 #ifdef __METAL_VERSION__
 #define M_1_PI 1 / M_PI_F
