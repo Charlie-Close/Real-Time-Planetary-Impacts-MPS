@@ -18,7 +18,7 @@
 //                                  //
 // -------------------------------- //
 
-Particles::Particles(MTL::Device* device, MTL::Buffer* particlePositions, MTL::Buffer* materialIdBuffer, MTL::Buffer* densityBuffer, MTL::Buffer* massBuffer, MTL::Buffer* smoothingLengthBuffer, MTL::Buffer* rhoGrads, MTL::Buffer* temperature, int nParticles) {
+Particles::Particles(MTL::Device* device, MTL::Buffer* particlePositions, MTL::Buffer* materialIdBuffer, MTL::Buffer* densityBuffer, MTL::Buffer* massBuffer, MTL::Buffer* smoothingLengthBuffer, MTL::Buffer* rhoGrads, MTL::Buffer* temperature, MTL::Buffer* alpha, int nParticles) {
     nPoints = nParticles;
     
     buildSphereVertexBuffer(device);
@@ -32,6 +32,7 @@ Particles::Particles(MTL::Device* device, MTL::Buffer* particlePositions, MTL::B
     _smoothingLengthBuffer = smoothingLengthBuffer;
     _pNormalBuffer = rhoGrads;
     _temperature = temperature;
+    _alpha = alpha;
     
     NS::Error** error = nil;
     MTL::Library* defaultLibrary = device->newDefaultLibrary();
@@ -60,7 +61,7 @@ Particles::Particles(MTL::Device* device, MTL::Buffer* particlePositions, MTL::B
     depthAttachementDescriptor->setLoadAction(MTL::LoadActionClear);
 }
 
-void Particles::updateBuffers(MTL::Buffer* particlePositions, MTL::Buffer* materialIdBuffer, MTL::Buffer* densityBuffer, MTL::Buffer* massBuffer, MTL::Buffer* smoothingLengthBuffer, MTL::Buffer* rhoGrads, MTL::Buffer* temperature) {
+void Particles::updateBuffers(MTL::Buffer* particlePositions, MTL::Buffer* materialIdBuffer, MTL::Buffer* densityBuffer, MTL::Buffer* massBuffer, MTL::Buffer* smoothingLengthBuffer, MTL::Buffer* rhoGrads, MTL::Buffer* temperature, MTL::Buffer* alpha) {
     _positionBuffer = particlePositions;
     _materialIdBuffer = materialIdBuffer;
     _densityBuffer = densityBuffer;
@@ -68,6 +69,7 @@ void Particles::updateBuffers(MTL::Buffer* particlePositions, MTL::Buffer* mater
     _smoothingLengthBuffer = smoothingLengthBuffer;
     _pNormalBuffer = rhoGrads;
     _temperature = temperature;
+    _alpha = alpha;
 }
 
 // -------------------------------- //
@@ -237,6 +239,7 @@ void Particles::draw(MTL::RenderCommandEncoder *pEnc, MTL::Buffer* cameraDataBuf
     pEnc->setVertexBuffer(_instanceArray, 0, 9);
     pEnc->setVertexBuffer(_temperature, 0, 10);
     pEnc->setVertexBuffer(_smoothingLengthBuffer, 0, 11);
+    pEnc->setVertexBuffer(_alpha, 0, 12);
     pEnc->setFragmentTexture(_shadowMap, 0);
 
     pEnc->drawIndexedPrimitives(MTL::PrimitiveType::PrimitiveTypeTriangle, MTL::IndexType::IndexTypeUInt16, _indexBuffer, 0, _indrBuffer, 0);

@@ -10,6 +10,22 @@
 #include "utils/eos.h"
 #include "../Parameters.h"
 
+inline void outerProductAdd(thread float3x3& M,
+                            thread const float& scale,
+                            thread const float3& v,
+                            thread const float3& g) {
+    // unrolled outer product
+    M[0][0] += scale * v.x * g.x;
+    M[0][1] += scale * v.x * g.y;
+    M[0][2] += scale * v.x * g.z;
+    M[1][0] += scale * v.y * g.x;
+    M[1][1] += scale * v.y * g.y;
+    M[1][2] += scale * v.y * g.z;
+    M[2][0] += scale * v.z * g.x;
+    M[2][1] += scale * v.z * g.y;
+    M[2][2] += scale * v.z * g.z;
+}
+
 kernel void density(device float3* positions,
                     device float3* velocities,
                     device float* densities,
@@ -30,6 +46,8 @@ kernel void density(device float3* positions,
                     device bool* active,
                     device bool* alive,
                     device int& dt,
+                    device float* alphaLoc,
+                    device float3* accelerations,
                     texture2d<float, access::sample> texIron [[texture(0)]],
                     texture2d<float, access::sample> texForesite [[texture(1)]],
                     texture2d<float, access::sample> texFe [[texture(2)]],
@@ -41,44 +59,21 @@ kernel void density(device float3* positions,
                     uint threadsPerGroup [[threads_per_threadgroup]])
 {
     if (index == 0) {
-//        globalTime += dt;
         dt = (int)floor(MAX_DT / MIN_DT);
     }
     
     uint ind = cellData[index].y;
     
-    threadgroup uint tgIndexes[THREADGROUP_CACHE_SIZE];
-    threadgroup packed_float3 tgXs[THREADGROUP_CACHE_SIZE];
-    
-    for (uint i = localId; i < THREADGROUP_CACHE_SIZE; i += threadsPerGroup) {
-        tgIndexes[i] = UINT_MAX;
-    }
-    
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-    
     if (!alive[ind]) {
         return;
     }
-    
-    int key = ind & (THREADGROUP_CACHE_SIZE - 1);
-    tgIndexes[key] = ind;
-    
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-    float3 x_i = positions[ind];
-    
-    if (tgIndexes[key] == ind) {
-        tgXs[key] = x_i;
-    }
-
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-        
+            
     // Handle case that particle is inactive.
     if (!active[ind]) {
         float u = internalEnergies[ind];
         float materialId = materialIds[ind];
         float density = densities[ind];
         float4 pc = eos(materialId, u, density, texIron, texForesite, texFe, texHHe, texIce, texRock);
-//        gradientTerms[ind] *= pc.x / pressures[ind];
 
         pressures[ind] = pc.x;
         speedsOfSound[ind] = pc.y;
@@ -87,6 +82,7 @@ kernel void density(device float3* positions,
         return;
     }
     
+    float3 x_i = positions[ind];
     float mass_i = masses[ind];
     float h_i = h[ind];
     int max_h = 0;
@@ -158,10 +154,7 @@ kernel void density(device float3* positions,
                                 continue;
                             }
                             
-                            // Check threadgroup cache
-                            uint key = j & (THREADGROUP_CACHE_SIZE - 1);
-                            uint pInd = tgIndexes[key];
-                            float3 x_j = pInd == j ? tgXs[key] : positions[j];
+                            float3 x_j = positions[j];
                             
                             float3 x_ij = x_j - x_i;
                             float r2 = length_squared(x_ij);
@@ -182,7 +175,6 @@ kernel void density(device float3* positions,
                             density_h += mass * dW_dh(r, h1);
                             particlesInRange++;
                         }
-
                     }
                 }
             }
@@ -193,7 +185,6 @@ kernel void density(device float3* positions,
         float eta_h = (RESOLUTION_ETA / h_i);
         float eta = mass_i * eta_h * eta_h * eta_h - density;
         float newH = clamp(h_i * (1 + eta / (3 * density * omega)), 1e-12, MAX_SMOOTHING_LENGTH);
-//        float newH = min(RESOLUTION_ETA * pow(mass_i / density, 1.f / 3), MAX_SMOOTHING_LENGTH);
         if (particlesInRange < PARTICLE_IN_RANGE_THRESHOLD) {
             newH = min(max(newH, h_i * 2), MAX_SMOOTHING_LENGTH);
         }
@@ -221,6 +212,10 @@ kernel void density(device float3* positions,
     float3 velCurl(0);
     float3 v_i = velocities[ind];
     float3 rhoGrad(0);
+    float3x3 M(0);
+    float accDiv = 0;
+    
+    
     // If we haven't overflowed, we can use our cache to speed things up.
     if (nNeighbours < N_NEIGHBOURS_ESTIM) {
         for (int i = 0; i < nNeighbours; i++) {
@@ -240,9 +235,11 @@ kernel void density(device float3* positions,
                 float3 gW = gradW(x_ij, r, r1, h1);
                 velDiv += mass * dot(v_ij, gW);
                 velCurl += mass * cross(v_ij, gW);
-                float3 gradj = rhoGrads[j];
+                outerProductAdd(M, -mass, v_ij, gW);
+                accDiv += mass * dot(accelerations[j] - accelerations[ind], gW);
+                
                 // Non physical, just for rendering purposes
-                rhoGrad += 0.25 * mass * (density * gW + 3 * gradj * W(r, h1));
+                rhoGrad += 0.25 * mass * (density * gW + 3 * rhoGrads[j] * W(r, h1));
             }
         }
     } else {
@@ -274,10 +271,7 @@ kernel void density(device float3* positions,
                             continue;
                         }
                         
-                        // Check threadgroup cache
-                        uint key = j & (THREADGROUP_CACHE_SIZE - 1);
-                        uint pInd = tgIndexes[key];
-                        float3 x_j = pInd == j ? tgXs[key] : positions[j];
+                        float3 x_j = positions[j];
                         
                         float3 x_ij = x_j - x_i;
                         float r2 = length_squared(x_ij);
@@ -293,20 +287,30 @@ kernel void density(device float3* positions,
                             float3 v_j = velocities[j];
                             float3 v_ij = v_j - v_i;
                             float3 gW = gradW(x_ij, r, r1, h1);
+//                            float m_rho = (masses[j] / densities[j]);
                             velDiv += mass * dot(v_ij, gW);
                             velCurl += mass * cross(v_ij, gW);
-                            float3 gradj = rhoGrads[j];
+                            outerProductAdd(M, - mass, v_ij, gW);
+                            accDiv += mass * dot(accelerations[j] - accelerations[ind], gW);
+                            
                             // Non physical, just for rendering purposes
-                            rhoGrad += 0.25 * mass * (density * gW + 3 * gradj * W(r, h1));
+                            rhoGrad += 0.25 * mass * (density * gW + 3 * rhoGrads[j] * W(r, h1));
                         }
                     }
                 }
             }
         }
     }
+    
+    float sum = 0.0f;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            sum += M.columns[i][j] * M.columns[j][i];
+        }
+    }
+
     rhoGrads[ind] = rhoGrad / density;
-    // Normalise the divergence and curl for density
-    velDiv = abs(velDiv) / density;
+    velDiv /= density;
     float absCurl = length(velCurl) / density;
 
     // Update our smoothing length, density and gradient terms
@@ -322,8 +326,17 @@ kernel void density(device float3* positions,
     pressures[ind] = pc.x;
     speedsOfSound[ind] = pc.y;
     temperatures[ind] = pc.z;
-
+    
     // Calculate our balsara switch.
-    balsara[ind] = velDiv / (velDiv + absCurl + 1e-4 * (pc.y / h_i));
+    balsara[ind] = abs(velDiv) / (abs(velDiv) + absCurl + 1e-4 * (pc.y / h_i));
     gradientTerms[ind] = 1 / omega;
+    
+//    if (nNeighbours > 10) {
+//        alphaLoc[ind] = (accDiv - sum);
+//    } else {
+//        alphaLoc[ind] = ALPHA_MIN;
+//    }
+//    alphaLoc[ind] = (accDiv - sum) / density;
+    float S = 10 * h_i * h_i * max(0.f, -1.f * (accDiv - sum) / density);
+    alphaLoc[ind] = max(ALPHA_MAX * S / (pc.y * pc.y + S), ALPHA_MIN);
 }

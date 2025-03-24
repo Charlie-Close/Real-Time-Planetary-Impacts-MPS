@@ -234,16 +234,6 @@ ANEOSTable loadHMDataFromFile(const std::string &filePath, const int resolution)
             float pressure = p[i*numU + j];
             float density = rho[i];
             float dp_drho = 1.3 * pressure / density;
-//            if (i == 0) { // forward difference
-//                dp_drho = ( p[(j+1)*numU + i] - p[j*numU + i] ) / ( rho[i+1] - rho[i] );
-////                dp_drho = ( p[(i+1)*numU + j] - p[i*numU + j] ) / ( rho[i+1] - rho[i] );
-//            } else if (i == numRho - 1) { // backward difference
-//                dp_drho = ( p[j*numU + i] - p[(j-1)*numU + i] ) / ( rho[i] - rho[i-1] );
-////                dp_drho = ( p[i*numU + j] - p[(i-1)*numU + j] ) / ( rho[i] - rho[i-1] );
-//            } else { // central difference
-//                dp_drho = ( p[(j+1)*numU + i] - p[(j-1)*numU + i] ) / ( rho[i+1] - rho[i-1] );
-////                dp_drho = ( p[(i+1)*numU + j] - p[(i-1)*numU + j] ) / ( rho[i+1] - rho[i-1] );
-//            }
             // Ensure dp_drho is positive; otherwise, you might want to flag an error.
             if (dp_drho < 0) {
                 throw std::runtime_error("Negative dp/drho encountered at i=" + std::to_string(i) + " j=" + std::to_string(j));

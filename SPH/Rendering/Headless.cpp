@@ -24,7 +24,7 @@ Headless::Headless() {
     _device = MTL::CreateSystemDefaultDevice();
     _commandQueue = _device->newCommandQueue();
     compute = new Compute(_device);
-    particles = new Particles(_device, compute->positionBuffer, compute->materialIdBuffer, compute->densityBuffer, compute->_massBuffer, compute->_smoothingLengthBuffer, compute->rhoGrads, compute->temperature, compute->nParticles);
+    particles = new Particles(_device, compute->positionBuffer, compute->materialIdBuffer, compute->densityBuffer, compute->_massBuffer, compute->_smoothingLengthBuffer, compute->rhoGrads, compute->temperature, compute->_alpha, compute->nParticles);
     camera = new Camera();
     
     _cameraDataBuffer = _device->newBuffer( sizeof(simd::float4x4), MTL::ResourceStorageModeShared );
@@ -193,7 +193,7 @@ void Headless::step()
     
     bool save = takeSnapshot();
     compute->organisation(_device, _commandQueue);
-    particles->updateBuffers(compute->positionBuffer, compute->materialIdBuffer, compute->densityBuffer, compute->_massBuffer, compute->_smoothingLengthBuffer, compute->rhoGrads, compute->temperature);
+    particles->updateBuffers(compute->positionBuffer, compute->materialIdBuffer, compute->densityBuffer, compute->_massBuffer, compute->_smoothingLengthBuffer, compute->rhoGrads, compute->temperature, compute->_alpha);
     if (save) {
         compute->saveState(_device, _commandQueue, std::string(SAVES_DIR) + "/state_" + std::to_string(START_SNAPSHOT + (nextSnapshot / 1000)) + ".hdf5");
     }

@@ -148,8 +148,10 @@ void Compute::loadInitialConditions(MTL::Device* device, MTL::CommandQueue* comm
     
     bool* active = new bool[nParticles];
     bool* alive = new bool[nParticles];
+    float* alphas = new float[nParticles];
     for (int i = 0; i < nParticles; i++) {
         active[i] = true;
+        alphas[i] = ALPHA_MIN;
         simd::float3 pos = data.positions[i];
         pos -= simd_float3(BOX_CENTER);
         if (abs(pos.x) > BOX_SIZE or abs(pos.y) > BOX_SIZE or abs(pos.z) > BOX_SIZE) {
@@ -194,6 +196,9 @@ void Compute::buildBuffers(MTL::Device* device, MTL::CommandQueue *commandQueue)
     _speedOfSoundBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _dInternalEnergyBuffer = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _balsara = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
+    _alpha = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
+    _da_dt = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
+    _alphaLoc = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     rhoGrads = device->newBuffer(nParticles * sizeof(simd_float3), MTL::ResourceStorageModePrivate);
     temperature = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _cellArrayi = device->newBuffer(nParticles * sizeof(simd_uint2), MTL::ResourceStorageModePrivate);
@@ -284,14 +289,14 @@ void Compute::activatePass(MTL::CommandBuffer* commandBuffer) {
         activate = true;
         framesSinceLastActivated = 0;
     }
+    
     MTL::ComputeCommandEncoder* computeEncoder = commandBuffer->computeCommandEncoder();
     assert(computeEncoder != nil);
     
     computeEncoder->setBuffer(_active, 0, 0);
     computeEncoder->setBuffer(_nextActiveTime, 0, 1);
     computeEncoder->setBuffer(_globalTime, 0, 2);
-    computeEncoder->setBuffer(_dt, 0, 3);
-    computeEncoder->setBytes(&activate, sizeof(bool), 4);
+    computeEncoder->setBytes(&activate, sizeof(bool), 3);
     
     encodeCommand(computeEncoder, _activatePSO, nParticles);
 
@@ -324,6 +329,8 @@ void Compute::densityPass(MTL::CommandBuffer* commandBuffer, bool step) {
     computeEncoder->setBuffer(_active, 0, 17);
     computeEncoder->setBuffer(_alive, 0, 18);
     computeEncoder->setBuffer(_dt, 0, 19);
+    computeEncoder->setBuffer(_alphaLoc, 0, 20);
+    computeEncoder->setBuffer(_accelerationBuffer, 0, 21);
     computeEncoder->setTexture(_iron, 0);
     computeEncoder->setTexture(_forsterite, 1);
     computeEncoder->setTexture(_Fe85Si15, 2);
@@ -365,14 +372,10 @@ void Compute::accelerationPass(MTL::CommandBuffer* commandBuffer) {
     computeEncoder->setBuffer(_globalTime, 0, 21);
     computeEncoder->setBuffer(_dt, 0, 22);
     computeEncoder->setBuffer(_pressureBuffer, 0, 23);
-    computeEncoder->setBuffer(materialIdBuffer, 0, 24);
-    computeEncoder->setTexture(_iron, 0);
-    computeEncoder->setTexture(_forsterite, 1);
-    computeEncoder->setTexture(_Fe85Si15, 2);
-    computeEncoder->setTexture(_HHe, 3);
-    computeEncoder->setTexture(_ice, 4);
-    computeEncoder->setTexture(_rock, 5);
-    encodeCommand(computeEncoder, _accelerationPSO, nParticles, 256);
+    computeEncoder->setBuffer(_alpha, 0, 24);
+    computeEncoder->setBuffer(_da_dt, 0, 25);
+    computeEncoder->setBuffer(_alphaLoc, 0, 26);
+    encodeCommand(computeEncoder, _accelerationPSO, nParticles);
 
     //  End the compute pass.
     computeEncoder->endEncoding();
@@ -407,13 +410,16 @@ void Compute::accelerationStepPass(MTL::CommandBuffer* commandBuffer) {
     computeEncoder->setBuffer(_dt, 0, 22);
     computeEncoder->setBuffer(_pressureBuffer, 0, 23);
     computeEncoder->setBuffer(materialIdBuffer, 0, 24);
+    computeEncoder->setBuffer(_alpha, 0, 25);
+    computeEncoder->setBuffer(_da_dt, 0, 26);
+    computeEncoder->setBuffer(_alphaLoc, 0, 27);
     computeEncoder->setTexture(_iron, 0);
     computeEncoder->setTexture(_forsterite, 1);
     computeEncoder->setTexture(_Fe85Si15, 2);
     computeEncoder->setTexture(_HHe, 3);
     computeEncoder->setTexture(_ice, 4);
     computeEncoder->setTexture(_rock, 5);
-    encodeCommand(computeEncoder, _accelerationStepPSO, nParticles, 256);
+    encodeCommand(computeEncoder, _accelerationStepPSO, nParticles);
 
     //  End the compute pass.
     computeEncoder->endEncoding();
@@ -441,6 +447,9 @@ void Compute::stepPass(MTL::CommandBuffer* commandBuffer) {
     computeEncoder->setBuffer(_globalTime, 0, 12);
     computeEncoder->setBuffer(_dt, 0, 13);
     computeEncoder->setBuffer(_alive, 0, 14);
+    computeEncoder->setBuffer(_alpha, 0, 15);
+    computeEncoder->setBuffer(_da_dt, 0, 16);
+    computeEncoder->setBuffer(_alphaLoc, 0, 17);
     encodeCommand(computeEncoder, _mStepPSO, nParticles);
 
     //  End the compute pass.
@@ -622,7 +631,6 @@ void Compute::shuffleData(MTL::Device* device, MTL::CommandQueue* commandQueue) 
     positionBuffer = shuffleFloat3(device, commandQueue, positionBuffer);
     _velocityBuffer = shuffleFloat3(device, commandQueue, _velocityBuffer);
     _accelerationBuffer = shuffleFloat3(device, commandQueue, _accelerationBuffer);
-    _accelerationBuffer1 = shuffleFloat3(device, commandQueue, _accelerationBuffer1);
     _gravAccelerationBuffer = shuffleFloat3(device, commandQueue, _gravAccelerationBuffer);
     densityBuffer = shuffleFloat(device, commandQueue, densityBuffer);
     _internalEnergyBuffer = shuffleFloat(device, commandQueue, _internalEnergyBuffer);
@@ -636,6 +644,10 @@ void Compute::shuffleData(MTL::Device* device, MTL::CommandQueue* commandQueue) 
     _balsara = shuffleFloat(device, commandQueue, _balsara);
     rhoGrads = shuffleFloat3(device, commandQueue, rhoGrads);
     _gravAbs = shuffleFloat(device, commandQueue, _gravAbs);
+    _alpha = shuffleFloat(device, commandQueue, _alpha);
+    _alphaLoc = shuffleFloat(device, commandQueue, _alphaLoc);
+    _da_dt = shuffleFloat(device, commandQueue, _da_dt);
+
     _nextActiveTime = shuffleInt(device, commandQueue, _nextActiveTime);
     _dhdt = shuffleFloat(device, commandQueue, _dhdt);
     _alive = shuffleBool(device, commandQueue, _alive);

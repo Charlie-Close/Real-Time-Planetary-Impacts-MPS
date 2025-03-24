@@ -97,6 +97,7 @@ vertex VertOut vertexSphere(device const float3* vertexData [[buffer(0)]],
                             device const uint* instanceIds [[buffer(9)]],
                             device const float* temperatures [[buffer(10)]],
                             device const float* h [[buffer(11)]],
+                            device const float* alpha [[buffer(12)]],
                             uint vertexId [[vertex_id]],
                             uint instInd [[instance_id]])
 {
@@ -123,7 +124,7 @@ vertex VertOut vertexSphere(device const float3* vertexData [[buffer(0)]],
     float size = PARTICLE_SIZE * rho * h[instanceId];
     
     float3 vertPos = size * (vertexData[vertexId].x * right + vertexData[vertexId].y * up);
-    if (rho < 0.0005) vertPos.x = 100000;
+    if (rho < 0.0005) vertPos.x = 100000; // Don't bother rendering under dense particles
     
     float4 worldPosition = float4(vertPos + positions[instanceId], 1.0);
     o.position = cameraMatrix * worldPosition;
@@ -138,14 +139,9 @@ vertex VertOut vertexSphere(device const float3* vertexData [[buffer(0)]],
             break;
         }
     }
-        
-//    if (materialIds[instanceId] == 402 or materialIds[instanceId] == 100) {
-//        o.colour = half3(0.2f, 0.2f, 0.25f);
-//    } else {
-//        o.colour = half3(0.3f, 0.3f, 0.35f);
-//    }
     
     float T = temperatures[instanceId];
+//    float T = 8000 * alpha[instanceId];
     float emmision = pow(clamp(T / 8000, 0.f, 1.f), 4);
     o.blackbody = emmision * getBlackBody(T);
     

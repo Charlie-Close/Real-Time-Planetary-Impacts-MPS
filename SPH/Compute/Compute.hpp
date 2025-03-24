@@ -66,6 +66,7 @@ public:
     MTL::Buffer* _smoothingLengthBuffer;
     MTL::Buffer* rhoGrads;
     MTL::Buffer* temperature;
+    MTL::Buffer* _alpha;
     
     int nParticles;
 
@@ -130,7 +131,6 @@ private:
 
     // Buffers
     MTL::Buffer* _velocityBuffer;
-    MTL::Buffer* _halfVelocities;
     MTL::Buffer* _accelerationBuffer;
     MTL::Buffer* _accelerationBuffer1;
     MTL::Buffer* _gravAccelerationBuffer;
@@ -138,6 +138,8 @@ private:
     MTL::Buffer* _pressureBuffer;
     MTL::Buffer* _gradientTermsBuffer;
     MTL::Buffer* _balsara;
+    MTL::Buffer* _da_dt;
+    MTL::Buffer* _alphaLoc;
     MTL::Buffer* _speedOfSoundBuffer;
     MTL::Buffer* _dInternalEnergyBuffer;
     MTL::Buffer* _bucketHist;
@@ -168,6 +170,7 @@ private:
     MTL::Buffer* _globalTime;
     MTL::Buffer* _dhdt;
     MTL::Buffer* _particleIds;
+
 
     // ANEOS textures
     MTL::Texture* _iron;

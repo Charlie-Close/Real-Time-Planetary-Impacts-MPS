@@ -23,7 +23,7 @@ Renderer::Renderer( MTL::Device* pDevice, Camera* camera )
     _pCommandQueue = _pDevice->newCommandQueue();
     
     compute = new Compute(_pDevice);
-    particles = new Particles(pDevice, compute->positionBuffer, compute->materialIdBuffer, compute->densityBuffer, compute->_massBuffer, compute->_smoothingLengthBuffer, compute->rhoGrads, compute->temperature, compute->nParticles);
+    particles = new Particles(pDevice, compute->positionBuffer, compute->materialIdBuffer, compute->densityBuffer, compute->_massBuffer, compute->_smoothingLengthBuffer, compute->rhoGrads, compute->temperature, compute->_alpha, compute->nParticles);
 
     buildBuffers();
     
@@ -104,7 +104,7 @@ void Renderer::draw(MTK::View* pView)
     pCmd->presentDrawable(pView->currentDrawable());
     pCmd->commit();
     compute->organisation(_pDevice, _pCommandQueue);
-    particles->updateBuffers(compute->positionBuffer, compute->materialIdBuffer, compute->densityBuffer, compute->_massBuffer, compute->_smoothingLengthBuffer, compute->rhoGrads, compute->temperature);
+    particles->updateBuffers(compute->positionBuffer, compute->materialIdBuffer, compute->densityBuffer, compute->_massBuffer, compute->_smoothingLengthBuffer, compute->rhoGrads, compute->temperature, compute->_alpha);
     pPool->release();
 
 }

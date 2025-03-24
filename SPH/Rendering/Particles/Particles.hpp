@@ -19,13 +19,13 @@
 
 class Particles {
 public:
-    Particles(MTL::Device* _device, MTL::Buffer* particlePositions, MTL::Buffer* materialIdBuffer, MTL::Buffer* densityBuffer, MTL::Buffer* _massBuffer, MTL::Buffer* _smoothingLengthBuffer, MTL::Buffer* rhoGrads, MTL::Buffer* temperature, int nParticles);
+    Particles(MTL::Device* _device, MTL::Buffer* particlePositions, MTL::Buffer* materialIdBuffer, MTL::Buffer* densityBuffer, MTL::Buffer* _massBuffer, MTL::Buffer* _smoothingLengthBuffer, MTL::Buffer* rhoGrads, MTL::Buffer* temperature, MTL::Buffer* alpha, int nParticles);
     void zeroVis(MTL::CommandBuffer* cmdBuff);
     void calculateNormals(MTL::CommandBuffer* cmdBuff, MTL::Buffer* cameraPosBuffer);
     void setIndrBuff(MTL::CommandBuffer* cmdBuff);
     void drawShadowMap(MTL::CommandBuffer* cmdBuffer);
     void draw(MTL::RenderCommandEncoder *pEnc, MTL::Buffer* cameraDataBuffer, MTL::Buffer* cameraPosBuffer);
-    void updateBuffers(MTL::Buffer* particlePositions, MTL::Buffer* materialIdBuffer, MTL::Buffer* densityBuffer, MTL::Buffer* massBuffer, MTL::Buffer* smoothingLengthBuffer, MTL::Buffer* rhoGrads, MTL::Buffer* temperature);
+    void updateBuffers(MTL::Buffer* particlePositions, MTL::Buffer* materialIdBuffer, MTL::Buffer* densityBuffer, MTL::Buffer* massBuffer, MTL::Buffer* smoothingLengthBuffer, MTL::Buffer* rhoGrads, MTL::Buffer* temperature, MTL::Buffer* alpha);
 
 
 private:
@@ -64,6 +64,7 @@ private:
     MTL::Buffer* _visibleCount;
     MTL::Buffer* _instanceArray;
     MTL::Buffer* _temperature;
+    MTL::Buffer* _alpha;
     
     // Textures
     MTL::Texture* _shadowMap;
