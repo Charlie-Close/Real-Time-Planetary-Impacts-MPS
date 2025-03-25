@@ -45,7 +45,7 @@ static inline CellToScanRange setCellsToScanDynamic(
     float3 position,
     float  h
 ) {
-    float radius = 2.f * h;
+    float radius = GAMMA * h;
     float3 minRange = position - float3(radius, radius, radius);
     float3 maxRange = position + float3(radius, radius, radius);
     

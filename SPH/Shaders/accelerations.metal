@@ -59,7 +59,7 @@ kernel void acceleration(device float3* positions,
     float h_i = h[ind];
     float B_i = balsara[ind];
     float hi1 = 1 / h_i;
-    float hi2x4 = h_i * h_i * 4;
+    float hSupportSquared = GAMMA * GAMMA * h_i * h_i;
     float alpha_i = alpha[ind];
     
 
@@ -88,7 +88,7 @@ kernel void acceleration(device float3* positions,
                 float3 cellMax = cellMin + float3(CELL_WIDTH, CELL_WIDTH, CELL_WIDTH);
                 float3 distToCell = clamp(x_i, cellMin, cellMax) - x_i; // component-wise clamp
                 float distToCell2 = dot(distToCell, distToCell);
-                if (distToCell2 > hi2x4) {
+                if (distToCell2 > hSupportSquared) {
                   continue;
                 }
                 
@@ -105,44 +105,33 @@ kernel void acceleration(device float3* positions,
                     float3 x_j = positions[j];
                     
                     float3 x_ij = x_i - x_j;
-                    float r = length(x_ij);
-                    float h_j = h[j];
-                    if (r < 1e-12) {
-                        alpha_loc += (masses[j] / densities[j]) * alphaLoc[j] * W(r, hi1);
+                    float r2 = length_squared(x_ij);
+                    if (r2 < 1e-12) {
+                        alpha_loc += (masses[j] / densities[j]) * alphaLoc[j] * W(sqrt(r2), hi1);
                         continue;
                     }
-                    if (r > h_i + h_i and r > h_j + h_j) {
+                    float h_j = h[j];
+                    float hjSupport = GAMMA * h_j;
+                    if (r2 > hSupportSquared and r2 > hjSupport * hjSupport) {
                         // Cell is out of range or on top of us, skip.
                         continue;
                     }
                     // Fetch and calculate info about particle
+                    float r = sqrt(r2);
                     float r1 = 1 / r;
                     float m_j = masses[j];
                     float rho_j = densities[j];
+                    float m_rho = m_j / rho_j;
                     float fact_j = pressures[j] * gradientTerms[j] / (rho_j * rho_j);
-                    float3 v_j = velocities[j];
-                    float c_j = speedsOfSound[j];
-                    float3 a_j = accelerations[j] + grav_accelerations[j];
-                    float hj1 = 1 / h_j;
-                    float3 v_ij = v_i - v_j;
-                    float rho_ij = 0.5 * (rho_i + rho_j);
+                    float3 v_ij = v_i - velocities[j];
                     const float v_dot_r = dot(v_ij, x_ij);
                     float mu_ij = v_dot_r < 0 ? v_dot_r * r1 : 0;
-                    float alpha_j = alpha[j];
-                    float alpha_ij = 0.5 * (alpha_i + alpha_j);
-                    float v_sigij = c_i + c_j - 2 * alpha_ij * mu_ij;
-//                    float v_sigij = c_i + c_j - VISCOSITY_BETA * mu_ij;
+                    float v_sigij = c_i + speedsOfSound[j] - VISCOSITY_BETA * mu_ij;
                     v_sigi = max(v_sigij, v_sigi);
-                    
-                    // Viscosity term
-                    float B_j = balsara[j];
-                    float B_ij = 0.5 * (B_i + B_j);
-
-                    float nu_ij = - 0.5 * alpha_ij * B_ij * mu_ij * v_sigij / rho_ij;
-//                    float nu_ij = - 0.5 * VISCOSITY_ALPHA * B_ij * mu_ij * v_sigij / rho_ij;
+                    float nu_ij = - 0.25 * (alpha_i + alpha[j]) * (B_i + balsara[j]) * mu_ij * v_sigij / (rho_i + rho_j);
                     
                     float3 gW_i = gradW(x_ij, r, r1, hi1);
-                    float3 gW_j = gradW(x_ij, r, r1, hj1);
+                    float3 gW_j = gradW(x_ij, r, r1, 1 / h_j);
                     float3 gW_ij = 0.5 * (gW_i + gW_j);
                     
                     // Acceleration terms
@@ -153,15 +142,15 @@ kernel void acceleration(device float3* positions,
                     // Accumulate
                     dv_dt -= m_j * (t_i + t_j + t_visc);
                     du_dt += m_j * (fact_i * dot(v_ij, gW_i) + 0.5 * nu_ij * dot(v_ij, gW_ij));
-                    dh_dt += (m_j / rho_j) * dot(v_ij, gW_i);
-                    alpha_loc += (m_j / rho_j) * alphaLoc[j] * W(r, hi1);
+                    dh_dt += m_rho * dot(v_ij, gW_i);
+                    alpha_loc += m_rho * alphaLoc[j] * W(r, hi1);
                 }
             }
         }
     }
     
     const float tau = h_i / (0.1 * v_sigi);
-    
+    alpha_loc = clamp(alpha_loc, ALPHA_MIN, ALPHA_MAX);
     if (alpha_i < alpha_loc) {
         alpha_i = alpha_loc;
     }
@@ -244,8 +233,8 @@ kernel void accelerationStep(device float3* positions,
     float h_i = h[ind] * exp((1 / h[ind]) * dh_dts[ind] * half_dt);
     float B_i = balsara[ind];
     float hi1 = 1 / h_i;
-    float hi2x4 = h_i * h_i * 4;
-    float alpha_i = alphaLoc[ind] + (alpha[ind] - alphaLoc[ind]) * exp(da_dt[ind]);
+    float hSupportSquared = GAMMA * GAMMA * h_i * h_i;
+    float alpha_i = clamp(alphaLoc[ind] + (alpha[ind] - alphaLoc[ind]) * exp(da_dt[ind]), ALPHA_MIN, ALPHA_MAX);
     
     // Accumulators
     float3 dv_dt = 0;
@@ -271,7 +260,7 @@ kernel void accelerationStep(device float3* positions,
                 float3 cellMax = cellMin + float3(CELL_WIDTH, CELL_WIDTH, CELL_WIDTH);
                 float3 distToCell = clamp(x_i, cellMin, cellMax) - x_i; // component-wise clamp
                 float distToCell2 = dot(distToCell, distToCell);
-                if (distToCell2 > hi2x4) {
+                if (distToCell2 > hSupportSquared) {
                   continue;
                 }
                 
@@ -288,13 +277,17 @@ kernel void accelerationStep(device float3* positions,
                     float3 x_j = positions[j] + half_dt * velocities[j] + 0.5 * half_dt * half_dt * a_j;
                     
                     float3 x_ij = x_i - x_j;
-                    float r = length(x_ij);
-                    float h_j = h[j] * exp((1 / h[j]) * dh_dts[j] * half_dt);
-                    if ((r > h_i + h_i and r > h_j + h_j) or r < 1e-12) {
+                    float r2 = length_squared(x_ij);
+                    float h_j = h[j];
+                    h_j *= exp(dh_dts[j] * half_dt / h_j);
+                    float hjSupport = GAMMA * h_j;
+                    if ((r2 > hSupportSquared and r2 > hjSupport * hjSupport) or r2 < 1e-12) {
                         // Cell is out of range or on top of us, skip.
                         continue;
                     }
+                    
                     // Fetch and calculate info about particle
+                    float r = sqrt(r2);
                     float r1 = 1 / r;
                     float m_j = masses[j];
                     float rho_j = densities[j] * exp(-(3 / h[j]) * dh_dts[j] * half_dt);
@@ -302,27 +295,17 @@ kernel void accelerationStep(device float3* positions,
                     float4 pc = eos(materialIds[j], u_j, rho_j, texIron, texForesite, texFe, texHHe, texIce, texRock);
                     float fact_j = gradientTerms[j] * pc.x / (rho_j * rho_j);
                     float3 v_j = velocities[j] + half_dt * a_j;
-                    float c_j = pc.y;
-                    float hj1 = 1 / h_j;
                     float3 v_ij = v_i - v_j;
-                    float rho_ij = 0.5 * (rho_i + rho_j);
                     const float v_dot_r = dot(v_ij, x_ij);
                     float mu_ij = v_dot_r < 0 ? v_dot_r * r1 : 0;
-                    float alpha_j = alphaLoc[j] + (alpha[j] - alphaLoc[j]) * exp(da_dt[j]);
-                    float alpha_ij = 0.5 * (alpha_i + alpha_j);
-//                    float v_sigij = c_i + c_j - 2 * alpha_ij * mu_ij;
-                    float v_sigij = c_i + c_j - VISCOSITY_BETA * mu_ij;
+                    float alpha_j = clamp(alphaLoc[j] + (alpha[j] - alphaLoc[j]) * exp(da_dt[j]), ALPHA_MIN, ALPHA_MAX);
+                    float v_sigij = c_i + pc.y - VISCOSITY_BETA * mu_ij;
                     v_sigi = max(v_sigij, v_sigi);
-                    
-                    // Viscosity term
-                    float B_j = balsara[j];
-                    float B_ij = 0.5 * (B_i + B_j);
-
-                    float nu_ij = - 0.5 * alpha_ij * B_ij * mu_ij * v_sigij / rho_ij;
-//                    float nu_ij = - 0.5 * VISCOSITY_ALPHA * B_ij * mu_ij * v_sigij / rho_ij;
+                
+                    float nu_ij = - 0.25 * (alpha_i + alpha_j) * (B_i + balsara[j]) * mu_ij * v_sigij / (rho_i + rho_j);
                     
                     float3 gW_i = gradW(x_ij, r, r1, hi1);
-                    float3 gW_j = gradW(x_ij, r, r1, hj1);
+                    float3 gW_j = gradW(x_ij, r, r1, 1 / h_j);
                     float3 gW_ij = 0.5 * (gW_i + gW_j);
                     
                     // Acceleration terms

@@ -9,7 +9,6 @@
 #define Parameters_h
 
 // Hydro
-//#define VISCOSITY_ALPHA 1.5f
 #define VISCOSITY_ALPHA 1.5f
 #define VISCOSITY_BETA 3.f
 #define ALPHA_MIN .1f
@@ -30,7 +29,7 @@
 #define ANEOS_MAX_U 1
 
 // Time stepping
-#define CFL .2f
+#define CFL .3f
 #define MIN_DT 0.01f
 #define MAX_DT 100.f
 #define STEPS_PER_FRAME 2 // Can set to 0 for headless mode to split frame up into multiple steps
@@ -52,7 +51,7 @@
 #define RED_MEMEORY_MULTIPLIER 0.8 // Scale memory down if we can
 
 // Cells and sorting
-#define CELL_WIDTH .4f
+#define CELL_WIDTH .3f
 #define CELL_POWER 8 // total number of cells is 2^(3 * CELL_POWER)
 #define SORTING_BLOCK_SIZE 256
 #define SORTING_MASK_LENGTH 8
@@ -68,6 +67,7 @@
 //#define FILEPATH "demo_impact_n65.hdf5"
 //#define FILEPATH "saves_n65/state_12.hdf5"
 //#define FILEPATH "demo_impact_n70.hdf5"
+//#define FILEPATH "saves_n70_visc_v2/state_42.hdf5"
 //#define FILEPATH "demo_impact_n75.hdf5"
 //#define FILEPATH "saves_n75/state_17.hdf5"
 //#define FILEPATH "saves_n70_v2/state_3.hdf5"
@@ -102,7 +102,7 @@
 #define HEADLESS false
 #define SNAPSHOT_RESOLUTION 4096
 #define HEADLESS_ITTERATION_RATE_REFRESH 16
-#define START_SNAPSHOT 0 // if running from a saved state
+#define START_SNAPSHOT 42 // if running from a saved state
 #define SNAPSHOT_DIR "snapshots_n70_visc_v2"
 #define SAVES_DIR "saves_n70_visc_v2"
 #define N_SNAPSHOTTERS 4

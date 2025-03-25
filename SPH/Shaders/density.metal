@@ -86,7 +86,8 @@ kernel void density(device float3* positions,
     float mass_i = masses[ind];
     float h_i = h[ind];
     int max_h = 0;
-    float h2x4 = 4 * h_i * h_i;
+    float hSupport = GAMMA * h_i;
+    float hSupportSqrd = hSupport * hSupport;
     float h1 = 1 / h_i;
     float density;
     float density_h;
@@ -113,7 +114,7 @@ kernel void density(device float3* positions,
             for (int i = 0; i < nNeighbours; i++) {
                 const uint j = neighbourIndex[i];
                 float r = rs[i];
-                if (r > h_i + h_i) {
+                if (r > hSupport) {
                     // out of range, continue
                     continue;
                 }
@@ -141,7 +142,7 @@ kernel void density(device float3* positions,
                         float3 cellMax = cellMin + float3(CELL_WIDTH, CELL_WIDTH, CELL_WIDTH);
                         float3 distToCell = clamp(x_i, cellMin, cellMax) - x_i; // component-wise clamp
                         float distToCell2 = dot(distToCell, distToCell);
-                        if (distToCell2 > h2x4) {
+                        if (distToCell2 > hSupportSqrd) {
                           continue;
                         }
                         
@@ -158,7 +159,7 @@ kernel void density(device float3* positions,
                             
                             float3 x_ij = x_j - x_i;
                             float r2 = length_squared(x_ij);
-                            if (r2 > h2x4) {
+                            if (r2 > hSupportSqrd) {
                                 // Cell out of range, continue
                                 continue;
                             }
@@ -203,7 +204,8 @@ kernel void density(device float3* positions,
         h_i = newH;
         max_h = fmax(h_i, max_h);
         h1 = 1 / h_i;
-        h2x4 = 4 * h_i * h_i;
+        hSupport = GAMMA * h_i;
+        hSupportSqrd = hSupport * hSupport;
         count++;
     }
 
@@ -221,7 +223,7 @@ kernel void density(device float3* positions,
         for (int i = 0; i < nNeighbours; i++) {
             const uint j = neighbourIndex[i];
             float r = rs[i];
-            if (r > h_i + h_i) {
+            if (r > hSupport) {
                 // Particle is out of range - skip it.
                 continue;
             }
@@ -260,7 +262,7 @@ kernel void density(device float3* positions,
                     float3 cellMax = cellMin + float3(CELL_WIDTH, CELL_WIDTH, CELL_WIDTH);
                     float3 distToCell = clamp(x_i, cellMin, cellMax) - x_i; // component-wise clamp
                     float distToCell2 = dot(distToCell, distToCell);
-                    if (distToCell2 > h2x4) {
+                    if (distToCell2 > hSupportSqrd) {
                       continue;
                     }
                     
@@ -275,7 +277,7 @@ kernel void density(device float3* positions,
                         
                         float3 x_ij = x_j - x_i;
                         float r2 = length_squared(x_ij);
-                        if (r2 > h2x4) {
+                        if (r2 > hSupport) {
                             // Particle is out of range - skip it.
                             continue;
                         }
@@ -287,7 +289,6 @@ kernel void density(device float3* positions,
                             float3 v_j = velocities[j];
                             float3 v_ij = v_j - v_i;
                             float3 gW = gradW(x_ij, r, r1, h1);
-//                            float m_rho = (masses[j] / densities[j]);
                             velDiv += mass * dot(v_ij, gW);
                             velCurl += mass * cross(v_ij, gW);
                             outerProductAdd(M, - mass, v_ij, gW);
@@ -331,12 +332,10 @@ kernel void density(device float3* positions,
     balsara[ind] = abs(velDiv) / (abs(velDiv) + absCurl + 1e-4 * (pc.y / h_i));
     gradientTerms[ind] = 1 / omega;
     
-//    if (nNeighbours > 10) {
-//        alphaLoc[ind] = (accDiv - sum);
-//    } else {
-//        alphaLoc[ind] = ALPHA_MIN;
-//    }
-//    alphaLoc[ind] = (accDiv - sum) / density;
-    float S = 10 * h_i * h_i * max(0.f, -1.f * (accDiv - sum) / density);
-    alphaLoc[ind] = max(ALPHA_MAX * S / (pc.y * pc.y + S), ALPHA_MIN);
+    if (nNeighbours > 5) {
+        float S = 10 * h_i * h_i * max(0.f, -1.f * (accDiv - sum) / density);
+        alphaLoc[ind] = clamp(ALPHA_MAX * S / (pc.y * pc.y + S), ALPHA_MIN, ALPHA_MAX);
+    } else {
+        alphaLoc[ind] = ALPHA_MIN;
+    }
 }
