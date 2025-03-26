@@ -140,8 +140,8 @@ vertex VertOut vertexSphere(device const float3* vertexData [[buffer(0)]],
         }
     }
     
-//    float T = temperatures[instanceId];
-    float T = 8000 * alpha[instanceId];
+    float T = temperatures[instanceId];
+//    float T = 8000 * alpha[instanceId];
     float emmision = pow(clamp(T / 8000, 0.f, 1.f), 4);
     o.blackbody = emmision * getBlackBody(T);
     
