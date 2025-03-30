@@ -37,6 +37,7 @@ kernel void acceleration(device float3* positions,
                          device float* alpha,
                          device float* da_dt,
                          device float* alphaLoc,
+                         device float* pAlphaLoc,
                          uint index [[thread_position_in_grid]],
                          uint localId [[thread_position_in_threadgroup]],
                          uint threadsPerGroup [[threads_per_threadgroup]])
@@ -61,16 +62,20 @@ kernel void acceleration(device float3* positions,
     float hi1 = 1 / h_i;
     float hSupportSquared = GAMMA * GAMMA * h_i * h_i;
     float alpha_i = alpha[ind];
+    float H1 = hi1 * gamma1;
+    float W_kernal_fac = KERNEL_CONSTANT * H1 * H1 * H1;
+    float gW_kernal_fac = KERNEL_CONSTANT * H1 * H1 * H1 * H1;
+    
     
 
     // Accumulators
     float3 dv_dt(0);
     float du_dt = 0;
     float dh_dt = 0;
-    float alpha_loc = 0;
+    float alpha_loc = (masses[ind] / rho_i) * pAlphaLoc[ind] * W_fast(0, H1, W_kernal_fac);
     
     // Get our surrounding cells
-    CellToScanRange range = setCellsToScanDynamic(x_i, h_i);
+    CellToScanRange range = setCellsToScanDynamic(x_i, min(ACC_LOOK_EXTEND * h_i, MAX_SMOOTHING_LENGTH));
     float v_sigi = 2 * c_i;
     for (int x = range.min.x; x <= range.max.x; x++) {
         for (int y = range.min.y; y <= range.max.y; y++) {
@@ -88,7 +93,7 @@ kernel void acceleration(device float3* positions,
                 float3 cellMax = cellMin + float3(CELL_WIDTH, CELL_WIDTH, CELL_WIDTH);
                 float3 distToCell = clamp(x_i, cellMin, cellMax) - x_i; // component-wise clamp
                 float distToCell2 = dot(distToCell, distToCell);
-                if (distToCell2 > hSupportSquared) {
+                if (distToCell2 > ACC_LOOK_EXTEND * ACC_LOOK_EXTEND * hSupportSquared) {
                   continue;
                 }
                 
@@ -106,13 +111,9 @@ kernel void acceleration(device float3* positions,
                     
                     float3 x_ij = x_i - x_j;
                     float r2 = length_squared(x_ij);
-                    if (r2 < 1e-12) {
-                        alpha_loc += (masses[j] / densities[j]) * alphaLoc[j] * W(sqrt(r2), hi1);
-                        continue;
-                    }
                     float h_j = h[j];
                     float hjSupport = GAMMA * h_j;
-                    if (r2 > hSupportSquared and r2 > hjSupport * hjSupport) {
+                    if ((r2 > hSupportSquared and r2 > hjSupport * hjSupport) or r2 < 1e-12) {
                         // Cell is out of range or on top of us, skip.
                         continue;
                     }
@@ -129,21 +130,21 @@ kernel void acceleration(device float3* positions,
                     float v_sigij = c_i + speedsOfSound[j] - VISCOSITY_BETA * mu_ij;
                     v_sigi = max(v_sigij, v_sigi);
                     float nu_ij = - 0.25 * (alpha_i + alpha[j]) * (B_i + balsara[j]) * mu_ij * v_sigij / (rho_i + rho_j);
+
                     
-                    float3 gW_i = gradW(x_ij, r, r1, hi1);
+                    float3 gW_i = gradW_fast(x_ij, r, r1, H1, gW_kernal_fac);
                     float3 gW_j = gradW(x_ij, r, r1, 1 / h_j);
-                    float3 gW_ij = 0.5 * (gW_i + gW_j);
+                    float W_i = W_fast(r, H1, W_kernal_fac);
                     
                     // Acceleration terms
-                    float3 t_i = fact_i * gW_i;
-                    float3 t_j = fact_j * gW_j;
-                    float3 t_visc = nu_ij * gW_ij;
+                    const float3 visc_acc_term = 0.5f * nu_ij * (gW_i + gW_j);
+                    const float3 SPH_acc_term = (fact_i * gW_i + fact_j * gW_j);
                     
                     // Accumulate
-                    dv_dt -= m_j * (t_i + t_j + t_visc);
-                    du_dt += m_j * (fact_i * dot(v_ij, gW_i) + 0.5 * nu_ij * dot(v_ij, gW_ij));
+                    dv_dt -= m_j * (SPH_acc_term + visc_acc_term);
+                    du_dt += m_j * (fact_i * dot(v_ij, gW_i) + 0.5 * dot(v_ij, visc_acc_term));
                     dh_dt += m_rho * dot(v_ij, gW_i);
-                    alpha_loc += m_rho * alphaLoc[j] * W(r, hi1);
+                    alpha_loc += m_rho * pAlphaLoc[j] * W_i;
                 }
             }
         }
@@ -219,7 +220,12 @@ kernel void accelerationStep(device float3* positions,
         return;
     }
     
-    float half_dt = 0.5 * MIN_DT * (nextActiveTime[ind] - globalTime);
+    // Cap time step at 8x the smallest timestep
+    float globalTimeStep = MIN_DT * dt;
+    float ownDt = MIN_DT * (nextActiveTime[ind] - globalTime);
+    ownDt = min(ownDt, 4 * globalTimeStep);
+    nextActiveTime[ind] = globalTime + (int)(ownDt / MIN_DT);
+    float half_dt = 0.5 * ownDt;
         
     // Get all of our relevant terms
     float3 a_i = accelerations[ind] + grav_accelerations[ind];
@@ -230,11 +236,13 @@ kernel void accelerationStep(device float3* positions,
     float4 pc = eos(materialIds[ind], u, rho_i, texIron, texForesite, texFe, texHHe, texIce, texRock);
     float fact_i = gradientTerms[ind] * pc.x / (rho_i * rho_i);
     float c_i = pc.y;
-    float h_i = h[ind] * exp((1 / h[ind]) * dh_dts[ind] * half_dt);
+    float h_i = clamp(h[ind] * exp((1 / h[ind]) * dh_dts[ind] * half_dt), 1e-12, MAX_SMOOTHING_LENGTH);
     float B_i = balsara[ind];
     float hi1 = 1 / h_i;
     float hSupportSquared = GAMMA * GAMMA * h_i * h_i;
     float alpha_i = clamp(alphaLoc[ind] + (alpha[ind] - alphaLoc[ind]) * exp(da_dt[ind]), ALPHA_MIN, ALPHA_MAX);
+    float H1 = hi1 * gamma1;
+    float gW_kernal_fac = KERNEL_CONSTANT * H1 * H1 * H1 * H1;
     
     // Accumulators
     float3 dv_dt = 0;
@@ -242,7 +250,7 @@ kernel void accelerationStep(device float3* positions,
     float dh_dt = 0;
 
     // Get our surrounding cells
-    CellToScanRange range = setCellsToScanDynamic(positions[ind], half_dt * half_dt * length(a_i) + h_i);
+    CellToScanRange range = setCellsToScanDynamic(positions[ind], half_dt * half_dt * length(a_i) + min(ACC_LOOK_EXTEND * h_i, MAX_SMOOTHING_LENGTH));
     float v_sigi = 2 * c_i;
     for (int x = range.min.x; x <= range.max.x; x++) {
         for (int y = range.min.y; y <= range.max.y; y++) {
@@ -260,7 +268,7 @@ kernel void accelerationStep(device float3* positions,
                 float3 cellMax = cellMin + float3(CELL_WIDTH, CELL_WIDTH, CELL_WIDTH);
                 float3 distToCell = clamp(x_i, cellMin, cellMax) - x_i; // component-wise clamp
                 float distToCell2 = dot(distToCell, distToCell);
-                if (distToCell2 > hSupportSquared) {
+                if (distToCell2 > ACC_LOOK_EXTEND * ACC_LOOK_EXTEND * hSupportSquared) {
                   continue;
                 }
                 
@@ -279,7 +287,7 @@ kernel void accelerationStep(device float3* positions,
                     float3 x_ij = x_i - x_j;
                     float r2 = length_squared(x_ij);
                     float h_j = h[j];
-                    h_j *= exp(dh_dts[j] * half_dt / h_j);
+                    h_j = clamp(h_j * exp(dh_dts[j] * half_dt / h_j), 1e-12, MAX_SMOOTHING_LENGTH);
                     float hjSupport = GAMMA * h_j;
                     if ((r2 > hSupportSquared and r2 > hjSupport * hjSupport) or r2 < 1e-12) {
                         // Cell is out of range or on top of us, skip.
@@ -301,21 +309,19 @@ kernel void accelerationStep(device float3* positions,
                     float alpha_j = clamp(alphaLoc[j] + (alpha[j] - alphaLoc[j]) * exp(da_dt[j]), ALPHA_MIN, ALPHA_MAX);
                     float v_sigij = c_i + pc.y - VISCOSITY_BETA * mu_ij;
                     v_sigi = max(v_sigij, v_sigi);
-                
+                                    
                     float nu_ij = - 0.25 * (alpha_i + alpha_j) * (B_i + balsara[j]) * mu_ij * v_sigij / (rho_i + rho_j);
                     
-                    float3 gW_i = gradW(x_ij, r, r1, hi1);
+                    float3 gW_i = gradW_fast(x_ij, r, r1, H1, gW_kernal_fac);
                     float3 gW_j = gradW(x_ij, r, r1, 1 / h_j);
-                    float3 gW_ij = 0.5 * (gW_i + gW_j);
                     
                     // Acceleration terms
-                    float3 t_i = fact_i * gW_i;
-                    float3 t_j = fact_j * gW_j;
-                    float3 t_visc = nu_ij * gW_ij;
+                    const float3 visc_acc_term = 0.5f * nu_ij * (gW_i + gW_j);
+                    const float3 SPH_acc_term = (fact_i * gW_i + fact_j * gW_j);
                     
                     // Accumulate
-                    dv_dt -= m_j * (t_i + t_j + t_visc);
-                    du_dt += m_j * (fact_i * dot(v_ij, gW_i) + 0.5 * nu_ij * dot(v_ij, gW_ij));
+                    dv_dt -= m_j * (SPH_acc_term + visc_acc_term);
+                    du_dt += m_j * (fact_i * dot(v_ij, gW_i) + 0.5 * dot(v_ij, visc_acc_term));
                     dh_dt += (m_j / rho_j) * dot(v_ij, gW_i);
                 }
             }

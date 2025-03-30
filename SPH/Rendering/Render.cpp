@@ -78,8 +78,10 @@ void Renderer::draw(MTK::View* pView)
         }
         compute->densityPass(pCmd);
         compute->accelerationPass(pCmd);
-        compute->accelerationStepPass(pCmd);
-        compute->stepPass(pCmd);
+        if (_frame != 0) {
+            compute->accelerationStepPass(pCmd);
+            compute->stepPass(pCmd);
+        }
         _frame++;
     }
     

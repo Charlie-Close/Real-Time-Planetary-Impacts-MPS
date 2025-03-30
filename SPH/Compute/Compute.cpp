@@ -160,6 +160,8 @@ void Compute::loadInitialConditions(MTL::Device* device, MTL::CommandQueue* comm
             alive[i] = true;
         }
     }
+    writeDataToPrivateBuffer(device, commandQueue, _alphaLoc, alphas, nParticles);
+    writeDataToPrivateBuffer(device, commandQueue, _alphaLoc, alphas, nParticles);
     writeDataToPrivateBuffer(device, commandQueue, _active, active, nParticles);
     writeDataToPrivateBuffer(device, commandQueue, _alive, alive, nParticles);
     writeDataToPrivateBuffer(device, commandQueue, _globalTime, (int)0);
@@ -199,6 +201,7 @@ void Compute::buildBuffers(MTL::Device* device, MTL::CommandQueue *commandQueue)
     _alpha = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _da_dt = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _alphaLoc = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
+    _pAlphaLoc = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     rhoGrads = device->newBuffer(nParticles * sizeof(simd_float3), MTL::ResourceStorageModePrivate);
     temperature = device->newBuffer(nParticles * sizeof(float), MTL::ResourceStorageModePrivate);
     _cellArrayi = device->newBuffer(nParticles * sizeof(simd_uint2), MTL::ResourceStorageModePrivate);
@@ -329,7 +332,7 @@ void Compute::densityPass(MTL::CommandBuffer* commandBuffer, bool step) {
     computeEncoder->setBuffer(_active, 0, 17);
     computeEncoder->setBuffer(_alive, 0, 18);
     computeEncoder->setBuffer(_dt, 0, 19);
-    computeEncoder->setBuffer(_alphaLoc, 0, 20);
+    computeEncoder->setBuffer(_pAlphaLoc, 0, 20);
     computeEncoder->setBuffer(_accelerationBuffer, 0, 21);
     computeEncoder->setTexture(_iron, 0);
     computeEncoder->setTexture(_forsterite, 1);
@@ -375,6 +378,7 @@ void Compute::accelerationPass(MTL::CommandBuffer* commandBuffer) {
     computeEncoder->setBuffer(_alpha, 0, 24);
     computeEncoder->setBuffer(_da_dt, 0, 25);
     computeEncoder->setBuffer(_alphaLoc, 0, 26);
+    computeEncoder->setBuffer(_pAlphaLoc, 0, 27);
     encodeCommand(computeEncoder, _accelerationPSO, nParticles);
 
     //  End the compute pass.
@@ -646,7 +650,9 @@ void Compute::shuffleData(MTL::Device* device, MTL::CommandQueue* commandQueue) 
     _gravAbs = shuffleFloat(device, commandQueue, _gravAbs);
     _alpha = shuffleFloat(device, commandQueue, _alpha);
     _alphaLoc = shuffleFloat(device, commandQueue, _alphaLoc);
+    _pAlphaLoc = shuffleFloat(device, commandQueue, _pAlphaLoc);
     _da_dt = shuffleFloat(device, commandQueue, _da_dt);
+    temperature = shuffleFloat(device, commandQueue, temperature);
 
     _nextActiveTime = shuffleInt(device, commandQueue, _nextActiveTime);
     _dhdt = shuffleFloat(device, commandQueue, _dhdt);

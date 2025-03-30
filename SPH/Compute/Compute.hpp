@@ -140,6 +140,7 @@ private:
     MTL::Buffer* _balsara;
     MTL::Buffer* _da_dt;
     MTL::Buffer* _alphaLoc;
+    MTL::Buffer* _pAlphaLoc;
     MTL::Buffer* _speedOfSoundBuffer;
     MTL::Buffer* _dInternalEnergyBuffer;
     MTL::Buffer* _bucketHist;

@@ -59,7 +59,7 @@ kernel void step(device float3* positions,
     float alpha_loc = alphaLoc[index];
     float dadt = da_dt[index];
     float tau = (alpha_loc - alpha_i) / dadt;
-    if (alpha_i != alpha_loc) {
+    if (alpha_i != alpha_loc and dadt > 1e-12) {
         alpha_i = alpha_loc + (alpha_i - alpha_loc) * exp(dadt);
         da_dt[index] = (alpha_loc - alpha_i) / tau;
         alpha[index] = clamp(alpha_i, ALPHA_MIN, ALPHA_MAX);

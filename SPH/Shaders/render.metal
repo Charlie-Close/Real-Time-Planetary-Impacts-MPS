@@ -142,6 +142,7 @@ vertex VertOut vertexSphere(device const float3* vertexData [[buffer(0)]],
     
     float T = temperatures[instanceId];
 //    float T = 8000 * alpha[instanceId];
+//    float T = 100000 * densities[instanceId];
     float emmision = pow(clamp(T / 8000, 0.f, 1.f), 4);
     o.blackbody = emmision * getBlackBody(T);
     
@@ -239,6 +240,7 @@ kernel void determineVisibility(device float3* positions,
     float rho = densities[index];
     
     float g2 = length_squared(densityGradient);
+//    bool visible = x_i.z > BOX_SIZE;
     bool visible = true;
     if (g2 > 1e-12 and rho > 0.0005) {
         float g = sqrt(g2);

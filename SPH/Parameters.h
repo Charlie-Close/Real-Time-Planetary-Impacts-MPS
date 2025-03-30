@@ -20,6 +20,7 @@
 #define THREADGROUP_CACHE_SIZE 512
 #define RESOLUTION_ETA 1.2348
 #define PARTICLE_IN_RANGE_THRESHOLD 10 // For choosing which method to use with NR
+#define ACC_LOOK_EXTEND 1.2f
 
 // EOS
 #define ANEOS_TEXTURE_RESOLUTION 2048
@@ -27,12 +28,16 @@
 #define ANEOS_MAX_RHO 1
 #define ANEOS_MIN_U 1e-10
 #define ANEOS_MAX_U 1
+#define ANEOS_MIN_P 1e-8
+#define ANEOS_MAX_P 1e-3
+#define ANEOS_MIN_T 1e2
+#define ANEOS_MAX_T 1e6
 
 // Time stepping
 #define CFL .3f
-#define MIN_DT 0.01f
+#define MIN_DT .001f
 #define MAX_DT 100.f
-#define STEPS_PER_FRAME 2 // Can set to 0 for headless mode to split frame up into multiple steps
+#define STEPS_PER_FRAME 0 // Can set to 0 for headless mode to split frame up into multiple steps
 //#define WENDLAND_C2_KERNEL
 #define CUBIC_SPLINE_KERNEL
 //#define QUARTIC_SPLINE_KERNEL
@@ -42,8 +47,8 @@
 #define P 2 // Power of multipole expansion (max is 4). Higher is faster at lower etas.
 #define N_EXPANSION_TERMS ((P+1)*(P+2)*(P+3)/6)
 #define MAX_TREE_DEPTH 100
-#define GRAVITY_SMOOTHING_LENGTH .48f
-#define PLUMBER_EQUIVALENT 3
+#define GRAVITY_SMOOTHING_LENGTH .16f
+#define PLUMBER_EQUIVALENT 0.3333333
 #define GRAVITY_MAX_RECURSION 3
 #define MAX_UNCHECKED_POINTERS 32 // For FMM, max pointers at lowest level
 #define MAX_CHILDREN_IN_LEAF 8
@@ -51,8 +56,8 @@
 #define RED_MEMEORY_MULTIPLIER 0.8 // Scale memory down if we can
 
 // Cells and sorting
-#define CELL_WIDTH .3f
-#define CELL_POWER 8 // total number of cells is 2^(3 * CELL_POWER)
+#define CELL_WIDTH .12f
+#define CELL_POWER 9 // total number of cells is 2^(3 * CELL_POWER)
 #define SORTING_BLOCK_SIZE 256
 #define SORTING_MASK_LENGTH 8
 #define SORTING_BUCKET_NUMBER (1 << SORTING_MASK_LENGTH)
@@ -67,11 +72,14 @@
 //#define FILEPATH "demo_impact_n65.hdf5"
 //#define FILEPATH "saves_n65/state_12.hdf5"
 //#define FILEPATH "demo_impact_n70.hdf5"
+#define FILEPATH "demo_impact_n70_2.hdf5"
 //#define FILEPATH "saves_n70_visc_v2/state_42.hdf5"
 //#define FILEPATH "demo_impact_n75.hdf5"
 //#define FILEPATH "saves_n75/state_17.hdf5"
+//#define FILEPATH "saves_n75_visc/state_29.hdf5"
 //#define FILEPATH "saves_n70_v2/state_3.hdf5"
-#define FILEPATH "demo_impact_n50.hdf5"
+//#define FILEPATH "demo_impact_n50.hdf5"
+//#define FILEPATH "demo_impact_n55.hdf5"
 //#define FILEPATH "demo_impact_n40.hdf5"
 // #define FILEPATH "saves_n50/state_3.hdf5"
 //#define FILEPATH "mercury_n50.hdf5"
@@ -85,8 +93,10 @@
 //#define FILEPATH "neptune_n50.hdf5"
 //#define FILEPATH "neptune_n50/state_150.hdf5"
 //#define FILEPATH "demo_target_n50.hdf5"
+//#define FILEPATH "saves_earth/state_200.hdf5"
 
 // Rendering
+//#define PARTICLE_SIZE 50
 #define PARTICLE_SIZE 150
 //#define PARTICLE_SIZE 500
 #define PARTICLE_SUBDIVITIONS 0
@@ -99,12 +109,14 @@
 #define ACTIVATE_ALL_STEPS 256
 
 // Headless mode
-#define HEADLESS false
+#define HEADLESS true
 #define SNAPSHOT_RESOLUTION 4096
 #define HEADLESS_ITTERATION_RATE_REFRESH 16
-#define START_SNAPSHOT 42 // if running from a saved state
-#define SNAPSHOT_DIR "snapshots_n70_visc_v2"
-#define SAVES_DIR "saves_n70_visc_v2"
+#define START_SNAPSHOT 0 // if running from a saved state
+//#define SNAPSHOT_DIR "snapshots_n75_visc"
+//#define SAVES_DIR "saves_n75_visc"
+#define SNAPSHOT_DIR "snapshots_n70_eos"
+#define SAVES_DIR "saves_n70_eos"
 #define N_SNAPSHOTTERS 4
 #define POSITIONS { (simd::float3){315, 355, 100}, (simd::float3){350, 355, 260}, (simd::float3){262, 362, 280}, (simd::float3){248, 306, 238} }
 #define PITCHES { -10, -30, -34, 3 }

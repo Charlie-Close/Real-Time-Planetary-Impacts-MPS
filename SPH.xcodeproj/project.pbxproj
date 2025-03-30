@@ -613,6 +613,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
 				HEADER_SEARCH_PATHS = (
 					"metal-cpp-extensions",
 					"metal-cpp",
@@ -620,6 +621,8 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/hdf5/1.14.5/lib";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
 			};
 			name = Debug;
 		};
@@ -627,6 +630,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
 				HEADER_SEARCH_PATHS = (
 					"metal-cpp-extensions",
 					"metal-cpp",
@@ -634,6 +638,8 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/hdf5/1.14.5/lib";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = macosx;
+				SUPPORTS_MACCATALYST = NO;
 			};
 			name = Release;
 		};

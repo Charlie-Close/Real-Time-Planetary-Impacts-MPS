@@ -154,12 +154,23 @@ void Headless::step()
         while (true) {
             MTL::CommandBuffer* pCmd4 = _commandQueue->commandBuffer(cmdDesc);
             compute->accelerationPass(pCmd4);
-            compute->accelerationStepPass(pCmd4);
-            compute->stepPass(pCmd4);
             pCmd4->commit();
             pCmd4->waitUntilCompleted();
             if (pCmd4->status() != MTL::CommandBufferStatusCompleted) {
-                std::cout << "Acceleration error, aborting..." << std::endl;
+                std::cout << "Acceleration error, retrying..." << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            } else {
+                break;
+            }
+        }
+        while (true and _frame != 0) {
+            MTL::CommandBuffer* pCmd5 = _commandQueue->commandBuffer(cmdDesc);
+            compute->accelerationStepPass(pCmd5);
+            compute->stepPass(pCmd5);
+            pCmd5->commit();
+            pCmd5->waitUntilCompleted();
+            if (pCmd5->status() != MTL::CommandBufferStatusCompleted) {
+                std::cout << "Acceleration step error, retrying..." << std::endl;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             } else {
                 break;
@@ -183,8 +194,11 @@ void Headless::step()
             }
             compute->densityPass(pCmd);
             compute->accelerationPass(pCmd);
-            compute->accelerationStepPass(pCmd);
-            compute->stepPass(pCmd);
+            if (_frame != 0) {
+                // Don't step if on first frame (need accelerations to calculate viscosity)
+                compute->accelerationStepPass(pCmd);
+                compute->stepPass(pCmd);
+            }
             _frame ++;
         }
         pCmd->commit();

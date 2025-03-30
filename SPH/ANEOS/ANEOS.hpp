@@ -19,13 +19,20 @@ struct ANEOSTable
 
     float* rho;
     float* u;
+    float* p;
+    float* T;
     
-    simd_float3* data; // ( pressure, sound_speed, temperature )
+    simd_float4* data; // ( pressure, sound_speed, temperature )
+    float* densities;
     
     float minRho;
     float maxRho;
     float minU;
     float maxU;
+    float minP;
+    float maxP;
+    float minT;
+    float maxT;
 };
 
 ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resolution);

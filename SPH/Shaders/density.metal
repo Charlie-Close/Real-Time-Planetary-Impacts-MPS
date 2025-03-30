@@ -46,7 +46,7 @@ kernel void density(device float3* positions,
                     device bool* active,
                     device bool* alive,
                     device int& dt,
-                    device float* alphaLoc,
+                    device float* pAlphaLoc,
                     device float3* accelerations,
                     texture2d<float, access::sample> texIron [[texture(0)]],
                     texture2d<float, access::sample> texForesite [[texture(1)]],
@@ -89,6 +89,9 @@ kernel void density(device float3* positions,
     float hSupport = GAMMA * h_i;
     float hSupportSqrd = hSupport * hSupport;
     float h1 = 1 / h_i;
+    float H1 = h1 * gamma1;
+    float kernal_fac = KERNEL_CONSTANT * H1 * H1 * H1;
+    float dh_kernel_fac = kernal_fac * H1;
     float density;
     float density_h;
     float omega;
@@ -118,10 +121,11 @@ kernel void density(device float3* positions,
                     // out of range, continue
                     continue;
                 }
-                float W_ij = W(r, h1);
-                float mass = masses[j];
+                float densityFactor = findDensityFactor(materialIds[ind], materialIds[j], temperatures[j], pressures[j], texIron, texForesite, texFe, texHHe, texIce, texRock);
+                float W_ij = W_fast(r, H1, kernal_fac);
+                float mass = densityFactor * masses[j];
                 density += W_ij * mass;
-                density_h += mass * dW_dh(r, h1);
+                density_h += mass * dW_dh_fast(r, H1, kernal_fac);
                 particlesInRange++;
             }
         } else {
@@ -170,10 +174,11 @@ kernel void density(device float3* positions,
                                 rs[nNeighbours] = r;
                                 nNeighbours++;
                             }
-                            float W_ij = W(r, h1);
-                            float mass = masses[j];
+                            float densityFactor = findDensityFactor(materialIds[ind], materialIds[j], temperatures[j], pressures[j], texIron, texForesite, texFe, texHHe, texIce, texRock);
+                            float W_ij = W_fast(r, H1, kernal_fac);
+                            float mass = densityFactor * masses[j];
                             density += W_ij * mass;
-                            density_h += mass * dW_dh(r, h1);
+                            density_h += mass * dW_dh_fast(r, H1, dh_kernel_fac);
                             particlesInRange++;
                         }
                     }
@@ -204,6 +209,9 @@ kernel void density(device float3* positions,
         h_i = newH;
         max_h = fmax(h_i, max_h);
         h1 = 1 / h_i;
+        H1 = h1 * gamma1;
+        kernal_fac = KERNEL_CONSTANT * H1 * H1 * H1;
+        dh_kernel_fac = kernal_fac * H1;
         hSupport = GAMMA * h_i;
         hSupportSqrd = hSupport * hSupport;
         count++;
@@ -216,7 +224,7 @@ kernel void density(device float3* positions,
     float3 rhoGrad(0);
     float3x3 M(0);
     float accDiv = 0;
-    
+    float unscaledDensity = 0;
     
     // If we haven't overflowed, we can use our cache to speed things up.
     if (nNeighbours < N_NEIGHBOURS_ESTIM) {
@@ -234,15 +242,16 @@ kernel void density(device float3* positions,
                 float3 v_j = velocities[j];
                 float3 v_ij = v_j - v_i;
                 float3 x_ij = positions[j] - x_i;
-                float3 gW = gradW(x_ij, r, r1, h1);
+                float3 gW = gradW_fast(x_ij, r, r1, H1, dh_kernel_fac);
                 velDiv += mass * dot(v_ij, gW);
                 velCurl += mass * cross(v_ij, gW);
                 outerProductAdd(M, -mass, v_ij, gW);
                 accDiv += mass * dot(accelerations[j] - accelerations[ind], gW);
                 
                 // Non physical, just for rendering purposes
-                rhoGrad += 0.25 * mass * (density * gW + 3 * rhoGrads[j] * W(r, h1));
+                rhoGrad += 0.25 * mass * (density * gW + 3 * rhoGrads[j] * W_fast(r, H1, kernal_fac));
             }
+            unscaledDensity += mass * W_fast(r, H1, kernal_fac);
         }
     } else {
         // Our cache has overflowed. Regrettably we need to loop though surrounding cells.
@@ -288,21 +297,22 @@ kernel void density(device float3* positions,
                             float r1 = 1 / r;
                             float3 v_j = velocities[j];
                             float3 v_ij = v_j - v_i;
-                            float3 gW = gradW(x_ij, r, r1, h1);
+                            float3 gW = gradW_fast(x_ij, r, r1, H1, dh_kernel_fac);
                             velDiv += mass * dot(v_ij, gW);
                             velCurl += mass * cross(v_ij, gW);
                             outerProductAdd(M, - mass, v_ij, gW);
                             accDiv += mass * dot(accelerations[j] - accelerations[ind], gW);
                             
                             // Non physical, just for rendering purposes
-                            rhoGrad += 0.25 * mass * (density * gW + 3 * rhoGrads[j] * W(r, h1));
+                            rhoGrad += 0.25 * mass * (density * gW + 3 * rhoGrads[j] * W_fast(r, H1, kernal_fac));
                         }
+                        unscaledDensity += mass * W_fast(r, H1, kernal_fac);
                     }
                 }
             }
         }
     }
-    
+            
     float sum = 0.0f;
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++) {
@@ -310,9 +320,9 @@ kernel void density(device float3* positions,
         }
     }
 
-    rhoGrads[ind] = rhoGrad / density;
-    velDiv /= density;
-    float absCurl = length(velCurl) / density;
+    rhoGrads[ind] = rhoGrad / unscaledDensity;
+    velDiv /= unscaledDensity;
+    float absCurl = length(velCurl) / unscaledDensity;
 
     // Update our smoothing length, density and gradient terms
     h[ind] = h_i;
@@ -333,9 +343,9 @@ kernel void density(device float3* positions,
     gradientTerms[ind] = 1 / omega;
     
     if (nNeighbours > 5) {
-        float S = 10 * h_i * h_i * max(0.f, -1.f * (accDiv - sum) / density);
-        alphaLoc[ind] = clamp(ALPHA_MAX * S / (pc.y * pc.y + S), ALPHA_MIN, ALPHA_MAX);
+        float S = 10 * h_i * h_i * max(0.f, -1.f * (accDiv - sum) / unscaledDensity);
+        pAlphaLoc[ind] = clamp(ALPHA_MAX * S / (pc.y * pc.y + S), ALPHA_MIN, ALPHA_MAX);
     } else {
-        alphaLoc[ind] = ALPHA_MIN;
+        pAlphaLoc[ind] = ALPHA_MIN;
     }
 }

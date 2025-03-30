@@ -81,9 +81,10 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
 
     // 2D arrays for storing internal energy, and the data we are going to store ( pressure, sound speed )
     float uTemp[numRho][numT];
-    std::vector<std::vector<simd_float3>> dataTemp(numRho);// dataTemp[numRho][numT];
+    float pTemp[numRho][numT];
+    std::vector<std::vector<simd_float4>> dataTemp(numRho);// dataTemp[numRho][numT];
     for (int i = 0; i < numRho; i++) {
-        dataTemp[i] = std::vector<simd_float3>(numT);
+        dataTemp[i] = std::vector<simd_float4>(numT);
     }
     {
         int rho_i = 0;
@@ -108,7 +109,8 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
             float c;
             iss >> p;
             iss >> c;
-            dataTemp[rho_i][t_i] = { p * pow(10.f, -18.f), c * pow(10.f, -6.f), tTemp[t_i] };
+            dataTemp[rho_i][t_i] = { p * pow(10.f, -18.f), c * pow(10.f, -6.f), tTemp[t_i], rhoTemp[rho_i] };
+            pTemp[rho_i][t_i] = p;
             
             rho_i++;
             if (rho_i == numRho) {
@@ -125,18 +127,26 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
     // Now we can start resampling.
     table.rho = new float[resolution];
     table.u = new float[resolution];
+    table.p = new float[resolution];
+    table.T = new float[resolution];
     table.minRho = ANEOS_MIN_RHO * 1e+6;
     table.minU = ANEOS_MIN_U * 1e+12;
     table.maxRho = ANEOS_MAX_RHO * 1e+6;
     table.maxU = ANEOS_MAX_U * 1e+12;
+    table.minP = ANEOS_MIN_P * 1e+18;
+    table.maxP = ANEOS_MAX_P * 1e+18;
+    table.minT = ANEOS_MIN_T;
+    table.maxT = ANEOS_MAX_T;
     // We sample exponentially.
     for (int i = 0; i < resolution; i++) {
         table.rho[i] = table.minRho * pow((table.maxRho / table.minRho), (float)i / resolution);
         table.u[i] = table.minU * pow((table.maxU / table.minU), (float)i / resolution);
+        table.p[i] = table.minP * pow((table.maxP / table.minP), (float)i / resolution);
+        table.T[i] = table.minT * pow((table.maxT / table.minT), (float)i / resolution);
     }
     
     // We do bilinear interpolation to resample our data
-    table.data = new simd_float3[resolution * resolution];
+    table.data = new simd_float4[resolution * resolution];
     // Index of which rho we are looking at. Avoids us having to do a binary search each time.
     int rhoTi = 0;
     for (int rho_i = 0; rho_i < resolution; rho_i++) {
@@ -158,7 +168,7 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
             while (u > uTemp[rhoTi][ulTi + 1] and ulTi < numT - 2) {
                 ulTi++;
             }
-            while (u > uTemp[rhoTi + 1][uhTi + 1] and ulTi < numT - 2) {
+            while (u > uTemp[rhoTi + 1][uhTi + 1] and uhTi < numT - 2) {
                 uhTi++;
             }
             
@@ -174,6 +184,43 @@ ANEOSTable loadANEOSDataFromFile(const std::string &filePath, const int resoluti
         }
     }
     
+    int tRhoi = 0;
+    for (int t_i = 0; t_i < resolution; t_i++) {
+        // Find which density indexes we are between
+        float t = table.T[t_i];
+        while (t > tTemp[tRhoi + 1] and tRhoi < numT - 2) {
+            tRhoi++;
+        }
+        // Get the interpolation factors (L is lower, H is higher)
+        float tLFact = (t - tTemp[tRhoi]) / (tTemp[tRhoi + 1] - tTemp[tRhoi]);
+        float tHFact = 1 - tLFact;
+        
+        // Now for both the lower and higher indices we need to do the same for internal energy.
+        int plRhoi = 0;
+        int phRhoi = 0;
+        for (int p_i = 0; p_i < resolution; p_i++) {
+            // Find which internal energy indices we are between for both the lower and higher density
+            float p = table.p[p_i];
+            while (p > pTemp[plRhoi + 1][tRhoi] and plRhoi < numRho - 2) {
+                plRhoi++;
+            }
+            while (p > pTemp[phRhoi + 1][tRhoi + 1] and phRhoi < numRho - 2) {
+                phRhoi++;
+            }
+
+            // Now we do the bilinear interpolation. Need higher and lower factor for both the higher and lower density.
+            float pLLFact = (p - pTemp[plRhoi][tRhoi]) / fmax(pTemp[plRhoi + 1][tRhoi] - pTemp[plRhoi][tRhoi], 1e-24);
+            float pLHFact = (p - pTemp[phRhoi][tRhoi + 1]) / fmax(pTemp[phRhoi + 1][tRhoi + 1] - pTemp[phRhoi][tRhoi + 1], 1e-24);
+            float pHLFact = 1 - pLLFact;
+            float pHHFact = 1 - pLHFact;
+            
+            // Perform the bilinear interpolation and store.
+            table.data[t_i * resolution + p_i].w = tLFact * (rhoTemp[plRhoi] * pLLFact + rhoTemp[plRhoi + 1] * pHLFact) + tHFact * (rhoTemp[phRhoi] * pLHFact + rhoTemp[phRhoi + 1] * pHHFact);
+            if (table.data[t_i * resolution + p_i].w < 1e-24 or table.data[t_i * resolution + p_i].w > 1e+24) {
+                table.data[t_i * resolution + p_i].w = rhoTemp[phRhoi + 1];
+            }
+        }
+    }
     return table;
 }
 
@@ -242,9 +289,9 @@ ANEOSTable loadHMDataFromFile(const std::string &filePath, const int resolution)
         }
     }
     
-    table.data = new simd_float3[100 * 100];
+    table.data = new simd_float4[100 * 100];
     for (int i = 0; i < 100 * 100; i++) {
-        table.data[i] = { p[i] * pow(10.f, -18.f), soundSpeed[i] * 1e-6f, T[i] };
+        table.data[i] = { p[i] * pow(10.f, -18.f), soundSpeed[i] * 1e-6f, T[i], 0 };
     }
         
     return table;
