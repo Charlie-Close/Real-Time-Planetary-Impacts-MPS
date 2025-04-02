@@ -48,7 +48,7 @@
 #define P 3 // Power of multipole expansion (max is 4). Higher is faster at lower etas.
 #define N_EXPANSION_TERMS ((P+1)*(P+2)*(P+3)/6)
 #define MAX_TREE_DEPTH 100
-#define GRAVITY_SMOOTHING_LENGTH .16sf
+#define GRAVITY_SMOOTHING_LENGTH .16f
 #define PLUMBER_EQUIVALENT 0.3333333
 #define GRAVITY_MAX_RECURSION 3
 #define MAX_UNCHECKED_POINTERS 32 // For FMM, max pointers at lowest level
@@ -58,7 +58,7 @@
 
 // Cells and sorting
 #define CELL_WIDTH .3f
-#define CELL_POWER 8 // total number of cells is 2^(3 * CELL_POWER)
+#define CELL_POWER 7 // total number of cells is 2^(3 * CELL_POWER)
 #define SORTING_BLOCK_SIZE 256
 #define SORTING_MASK_LENGTH 8
 #define SORTING_BUCKET_NUMBER (1 << SORTING_MASK_LENGTH)
