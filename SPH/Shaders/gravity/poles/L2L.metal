@@ -251,9 +251,6 @@ void L2L(device int* treeStructure, device Multipole* multipoles, device Local* 
         int nodePointer = treeStructure[j];
         int nodeDataPointer = treeStructure[nodePointer + 1];
         Multipole nodeMp = multipoles[nodeDataPointer];
-        if (!nodeMp.active) {
-            continue;
-        }
         float3 r = nodeMp.pos - local.pos;
         locals[nodeDataPointer] = transformLocal(local, r);
     }

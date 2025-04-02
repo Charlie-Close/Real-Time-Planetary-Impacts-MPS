@@ -87,6 +87,7 @@
 		5B39C87B2D874D6D00D89E42 /* HM80_rock.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = HM80_rock.txt; sourceTree = "<group>"; };
 		5B39C87E2D878FC300D89E42 /* activate.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = activate.metal; sourceTree = "<group>"; };
 		5B39C8802D889FD300D89E42 /* eos.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = eos.h; sourceTree = "<group>"; };
+		5B43FA922D9C6F560077DB45 /* ScreenSaver.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ScreenSaver.framework; path = System/Library/Frameworks/ScreenSaver.framework; sourceTree = SDKROOT; };
 		5B45357B2D4F7AB7009F35F7 /* morton.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = morton.h; sourceTree = "<group>"; };
 		5B49053D2D53CCDC0038674B /* M2L.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = M2L.metal; sourceTree = "<group>"; };
 		5B49053F2D53CD910038674B /* accept.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = accept.metal; sourceTree = "<group>"; };
@@ -227,6 +228,7 @@
 		5B5C9BBF2D41207C003302F2 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				5B43FA922D9C6F560077DB45 /* ScreenSaver.framework */,
 				5B5C9C012D412D2C003302F2 /* libhdf5.310.5.0.dylib */,
 				5B5C9BC62D412091003302F2 /* QuartzCore.framework */,
 				5B5C9BC42D412089003302F2 /* MetalKit.framework */,

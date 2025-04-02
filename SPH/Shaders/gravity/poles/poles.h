@@ -62,7 +62,6 @@ typedef struct {
     float expansion[N_EXPANSION_TERMS];
     float power[P+1];
     float minGrav;
-    bool active;
     float eta;
 } Multipole;
 
@@ -79,9 +78,9 @@ typedef struct {
 float integer_powf(const float x, const unsigned int n);
 void addPowers(thread Multipole &mp);
 
-Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float* grav, device float* h, device bool* active, device int* nextActiveTime, device int* globalTime, device int& dt, int treePointer);
+Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float3* velocities, device float* grav, device float* h, int treePointer, int dt);
 float3 L2P(Local local, float3 pos);
-Multipole M2M(device int* treeStructure, device Multipole* multipoles, device bool* active, device unsigned long* parentIndexes, uint index, int treePointer);
+Multipole M2M(device int* treeStructure, device Multipole* multipoles, device unsigned long* parentIndexes, uint index, int treePointer);
 void L2L(device int* treeStructure, device Multipole* multipoles, device Local* locals, thread Multipole& mp, thread Local& local, int treePointer);
 Derivatives derivatives(float3 vec, float eps);
 void M2L(thread Multipole& mp, thread Local& local);

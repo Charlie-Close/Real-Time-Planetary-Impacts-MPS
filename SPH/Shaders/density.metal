@@ -48,18 +48,23 @@ kernel void density(device float3* positions,
                     device int& dt,
                     device float* pAlphaLoc,
                     device float3* accelerations,
+                    device int& globalTime,
+                    device int& gravNextActiveTime,
                     texture2d<float, access::sample> texIron [[texture(0)]],
                     texture2d<float, access::sample> texForesite [[texture(1)]],
                     texture2d<float, access::sample> texFe [[texture(2)]],
                     texture2d<float, access::sample> texHHe [[texture(3)]],
                     texture2d<float, access::sample> texIce [[texture(4)]],
                     texture2d<float, access::sample> texRock [[texture(5)]],
-                    uint index [[thread_position_in_grid]],
-                    uint localId [[thread_position_in_threadgroup]],
-                    uint threadsPerGroup [[threads_per_threadgroup]])
+                    uint index [[thread_position_in_grid]])
 {
     if (index == 0) {
-        dt = (int)floor(MAX_DT / MIN_DT);
+        int gravDt = gravNextActiveTime - globalTime;
+        if (gravDt != 0) {
+            dt = gravDt;
+        } else {
+            dt = (int)floor(MAX_DT / MIN_DT);
+        }
     }
     
     uint ind = cellData[index].y;

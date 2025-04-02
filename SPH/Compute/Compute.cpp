@@ -166,6 +166,8 @@ void Compute::loadInitialConditions(MTL::Device* device, MTL::CommandQueue* comm
     writeDataToPrivateBuffer(device, commandQueue, _alive, alive, nParticles);
     writeDataToPrivateBuffer(device, commandQueue, _globalTime, (int)0);
     writeDataToPrivateBuffer(device, commandQueue, _dt, (int)0);
+    writeDataToPrivateBuffer(device, commandQueue, _gravDt, (uint)0);
+    writeDataToPrivateBuffer(device, commandQueue, _nextActiveTime, (uint)0);
     
     int* nextActiveTime = new int[nParticles];
     for (int i = 0; i < nParticles; i++) {
@@ -227,6 +229,9 @@ void Compute::buildBuffers(MTL::Device* device, MTL::CommandQueue *commandQueue)
     _globalTime = device->newBuffer(sizeof(int), MTL::ResourceStorageModeShared);
     _dhdt = device->newBuffer(sizeof(float) * nParticles, MTL::ResourceStorageModePrivate);
     _particleIds = device->newBuffer(sizeof(int) * nParticles, MTL::ResourceStorageModePrivate);
+    _gravDt = device->newBuffer(sizeof(uint), MTL::ResourceStorageModePrivate);
+    _gravNextActiveTime = device->newBuffer(sizeof(uint), MTL::ResourceStorageModePrivate);
+    _gActive = device->newBuffer(sizeof(bool), MTL::ResourceStorageModePrivate);
 }
 
 void Compute::buildShaders(MTL::Device* device) {
@@ -334,6 +339,8 @@ void Compute::densityPass(MTL::CommandBuffer* commandBuffer, bool step) {
     computeEncoder->setBuffer(_dt, 0, 19);
     computeEncoder->setBuffer(_pAlphaLoc, 0, 20);
     computeEncoder->setBuffer(_accelerationBuffer, 0, 21);
+    computeEncoder->setBuffer(_globalTime, 0, 22);
+    computeEncoder->setBuffer(_gravNextActiveTime, 0, 23);
     computeEncoder->setTexture(_iron, 0);
     computeEncoder->setTexture(_forsterite, 1);
     computeEncoder->setTexture(_Fe85Si15, 2);
@@ -526,7 +533,7 @@ void Compute::gravitationalPass(MTL::CommandBuffer* commandBuffer) {
     for (long i = _treeLevelBuffers.size() - 1; i >= 0; i--) {
         MTL::ComputeCommandEncoder* computeEncoder = commandBuffer->computeCommandEncoder();
         assert(computeEncoder != nil);
-        
+    
         computeEncoder->setBuffer(positionBuffer, 0, 0);
         computeEncoder->setBuffer(_massBuffer, 0, 1);
         computeEncoder->setBuffer(_smoothingLengthBuffer, 0, 2);
@@ -536,10 +543,11 @@ void Compute::gravitationalPass(MTL::CommandBuffer* commandBuffer) {
         computeEncoder->setBuffer(_treeLevelBuffers[i], 0, 6);
         computeEncoder->setBuffer(_parentIndexes, 0, 7);
         computeEncoder->setBuffer(_gravAbs, 0, 8);
-        computeEncoder->setBuffer(_active, 0, 9);
-        computeEncoder->setBuffer(_nextActiveTime, 0, 10);
+        computeEncoder->setBuffer(_velocityBuffer, 0, 9);
+        computeEncoder->setBuffer(_gravDt, 0, 10);
         computeEncoder->setBuffer(_globalTime, 0, 11);
-        computeEncoder->setBuffer(_dt, 0, 12);
+        computeEncoder->setBuffer(_gravNextActiveTime, 0, 12);
+        computeEncoder->setBuffer(_gActive, 0, 13);
 
 
         encodeCommand(computeEncoder, _upTreePSO, treeLevels[i].size());
@@ -558,20 +566,25 @@ void Compute::gravitationalPass(MTL::CommandBuffer* commandBuffer) {
         stride = (int)(prevGravDataSize / (sizeof(int) * treeLevels[i].size()));
     
         computeEncoder->setBuffer(positionBuffer, 0, 0);
-        computeEncoder->setBuffer(_gravAccelerationBuffer, 0, 1);
-        computeEncoder->setBuffer(_massBuffer, 0, 2);
-        computeEncoder->setBuffer(_smoothingLengthBuffer, 0, 3);
-        computeEncoder->setBuffer(_tree, 0, 4);
-        computeEncoder->setBuffer(_multipoleExpansions, 0, 5);
-        computeEncoder->setBuffer(_localExpansion, 0, 6);
-        computeEncoder->setBuffer(_treeLevelBuffers[i], 0, 7);
-        computeEncoder->setBuffer(_parentIndexes, 0, 8);
-        computeEncoder->setBuffer(i % 2 == 0 ? _localGravi : _localGravj, 0, 9);
-        computeEncoder->setBuffer(i % 2 == 0 ? _localGravj : _localGravi, 0, 10);
-        computeEncoder->setBuffer(_gravAbs, 0, 11);
-        computeEncoder->setBuffer(_active, 0, 12);
-        computeEncoder->setBytes(&parent_stride, sizeof(int), 13);
-        computeEncoder->setBytes(&stride, sizeof(int), 14);
+        computeEncoder->setBuffer(_velocityBuffer, 0, 1);
+        computeEncoder->setBuffer(_gravAccelerationBuffer, 0, 2);
+        computeEncoder->setBuffer(_massBuffer, 0, 3);
+        computeEncoder->setBuffer(_smoothingLengthBuffer, 0, 4);
+        computeEncoder->setBuffer(_tree, 0, 5);
+        computeEncoder->setBuffer(_multipoleExpansions, 0, 6);
+        computeEncoder->setBuffer(_localExpansion, 0, 7);
+        computeEncoder->setBuffer(_treeLevelBuffers[i], 0, 8);
+        computeEncoder->setBuffer(_parentIndexes, 0, 9);
+        computeEncoder->setBuffer(i % 2 == 0 ? _localGravi : _localGravj, 0, 10);
+        computeEncoder->setBuffer(i % 2 == 0 ? _localGravj : _localGravi, 0, 11);
+        computeEncoder->setBuffer(_gravAbs, 0, 12);
+        computeEncoder->setBuffer(_active, 0, 13);
+        computeEncoder->setBytes(&parent_stride, sizeof(int), 14);
+        computeEncoder->setBytes(&stride, sizeof(int), 15);
+        computeEncoder->setBuffer(_gravDt, 0, 16);
+        computeEncoder->setBuffer(_globalTime, 0, 17);
+        computeEncoder->setBuffer(_gravNextActiveTime, 0, 18);
+        computeEncoder->setBuffer(_gActive, 0, 19);
 
         encodeCommand(computeEncoder, _downTreePSO, treeLevels[i].size());
 

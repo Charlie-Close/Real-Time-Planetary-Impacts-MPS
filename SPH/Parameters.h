@@ -13,14 +13,14 @@
 #define VISCOSITY_BETA 3.f
 #define ALPHA_MIN .1f
 #define ALPHA_MAX 2.f
-#define DENSITY_ETA .005f // half a percent error
+#define DENSITY_ETA .001f // point one percent error
 #define MAX_SMOOTHING_LENGTH 1.f
 #define MAX_DENSITY_NR_ITTERATIONS 50
 #define N_NEIGHBOURS_ESTIM 128 //Estimate number of neighbours. Used for caching on density pass. If too small, can't use cache.
 #define THREADGROUP_CACHE_SIZE 512
 #define RESOLUTION_ETA 1.2348
 #define PARTICLE_IN_RANGE_THRESHOLD 10 // For choosing which method to use with NR
-#define ACC_LOOK_EXTEND 1.2f
+#define ACC_LOOK_EXTEND 1.f
 
 // EOS
 #define ANEOS_TEXTURE_RESOLUTION 2048
@@ -34,7 +34,8 @@
 #define ANEOS_MAX_T 1e6
 
 // Time stepping
-#define CFL .3f
+#define CFL .3f // For hydro time stepping
+#define GDT .5f // For gravity time stepping
 #define MIN_DT .001f
 #define MAX_DT 100.f
 #define STEPS_PER_FRAME 2 // Can set to 0 for headless mode to split frame up into multiple steps
@@ -43,20 +44,20 @@
 //#define QUARTIC_SPLINE_KERNEL
 
 // Gravity
-#define GRAVITY_ETA .005f // half a percent error
-#define P 2 // Power of multipole expansion (max is 4). Higher is faster at lower etas.
+#define GRAVITY_ETA .001f // point one percent error
+#define P 3 // Power of multipole expansion (max is 4). Higher is faster at lower etas.
 #define N_EXPANSION_TERMS ((P+1)*(P+2)*(P+3)/6)
 #define MAX_TREE_DEPTH 100
-#define GRAVITY_SMOOTHING_LENGTH .16f
+#define GRAVITY_SMOOTHING_LENGTH .16sf
 #define PLUMBER_EQUIVALENT 0.3333333
 #define GRAVITY_MAX_RECURSION 3
 #define MAX_UNCHECKED_POINTERS 32 // For FMM, max pointers at lowest level
-#define MAX_CHILDREN_IN_LEAF 8
+#define MAX_CHILDREN_IN_LEAF 4
 #define EXTRA_MEMORY_MULTIPLIER 1.05 // When claiming memory for an octree, claim some extra so if our tree grows, we don't need to reclaim
 #define RED_MEMEORY_MULTIPLIER 0.8 // Scale memory down if we can
 
 // Cells and sorting
-#define CELL_WIDTH .4f
+#define CELL_WIDTH .3f
 #define CELL_POWER 8 // total number of cells is 2^(3 * CELL_POWER)
 #define SORTING_BLOCK_SIZE 256
 #define SORTING_MASK_LENGTH 8
@@ -72,6 +73,10 @@
 //#define FILEPATH "demo_impact_n65.hdf5"
 //#define FILEPATH "saves_n65/state_12.hdf5"
 //#define FILEPATH "demo_impact_n70.hdf5"
+//#define FILEPATH "demo_impact_n70_3.hdf5"
+//#define FILEPATH "saves_n70_grav/state_72.hdf5"
+//#define FILEPATH "demo_impactor_n70.hdf5"
+//#define FILEPATH "demo_target_n70.hdf5"
 //#define FILEPATH "demo_impact_n70_2.hdf5"
 //#define FILEPATH "saves_n70_visc_v2/state_42.hdf5"
 //#define FILEPATH "demo_impact_n75.hdf5"
@@ -106,17 +111,15 @@
 #define LIGHT_DIRECTION -1.0, -1.0, 0.5
 #define SHADOW_MAP_RESOLUTION 4096
 #define DENSITY_GRADIENT_SETTLING_ITTERATIONS 3
-#define ACTIVATE_ALL_STEPS 256
+#define ACTIVATE_ALL_STEPS 1024
 
 // Headless mode
 #define HEADLESS false
 #define SNAPSHOT_RESOLUTION 4096
 #define HEADLESS_ITTERATION_RATE_REFRESH 16
-#define START_SNAPSHOT 0 // if running from a saved state
-//#define SNAPSHOT_DIR "snapshots_n75_visc"
-//#define SAVES_DIR "saves_n75_visc"
-#define SNAPSHOT_DIR "snapshots_n70_eos"
-#define SAVES_DIR "saves_n70_eos"
+#define START_SNAPSHOT 72 // if running from a saved state
+#define SNAPSHOT_DIR "snapshots_n70_grav"
+#define SAVES_DIR "saves_n70_grav"
 #define N_SNAPSHOTTERS 4
 #define POSITIONS { (simd::float3){315, 355, 100}, (simd::float3){350, 355, 260}, (simd::float3){262, 362, 280}, (simd::float3){248, 306, 238} }
 #define PITCHES { -10, -30, -34, 3 }

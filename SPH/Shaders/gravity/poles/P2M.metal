@@ -9,7 +9,7 @@
 #include <metal_stdlib>
 using namespace metal;
 
-Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float* grav, device float* h, device bool* active, device int* nextActiveTime, device int* globalTime, device int& dt, int treePointer) {
+Multipole P2M(device int* treeStructure, device float* masses, device float3* positions, device float3* velocities, device float* grav, device float* h, int treePointer, int dt) {
     Multipole mp;
     int nParticles = treeStructure[treePointer];
     int start = treePointer + 2;
@@ -20,21 +20,17 @@ Multipole P2M(device int* treeStructure, device float* masses, device float3* po
         mp.expansion[i] = 0;
     }
     mp.minGrav = MAXFLOAT;
-    mp.active = false;
     mp.max = float3(-MAXFLOAT);
     mp.min = float3(MAXFLOAT);
     mp.eta = 0;
+    float fdt = MIN_DT * dt;
     
     for (int i = start; i < end; i++) {
         int p = treeStructure[i];
         float p_mass = masses[p];
-        float3 p_position = positions[p];
+        float3 p_position = positions[p] + 0.5 * fdt * velocities[p];
         float p_h = h[p];
         float p_eta = min(p_h * GAMMA * PLUMBER_EQUIVALENT, GRAVITY_SMOOTHING_LENGTH);
-        int isActive = active[p];
-        if (!mp.active and isActive) {
-            mp.active = true;
-        }
         mp.max = max(mp.max, p_position);
         mp.min = min(mp.min, p_position);
         mp.eta = max(mp.eta, p_eta);
@@ -49,7 +45,7 @@ Multipole P2M(device int* treeStructure, device float* masses, device float3* po
     for (int i = start; i < end; i++) {
         int p = treeStructure[i];
         float p_mass = masses[p];
-        float3 p_position = positions[p];
+        float3 p_position = positions[p] + 0.5 * fdt * velocities[p];
         float3 r = p_position - mp.pos;
         
         mp.expansion[X] -= r.x * p_mass;

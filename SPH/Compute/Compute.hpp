@@ -27,7 +27,6 @@ typedef struct {
     float expansion[N_EXPANSION_TERMS];
     float power[P+1];
     float minGrav;
-    bool active;
     float eta;
 } Multipole;
 
@@ -169,8 +168,11 @@ private:
     MTL::Buffer* _dt;
     MTL::Buffer* _nextActiveTime;
     MTL::Buffer* _globalTime;
+    MTL::Buffer* _gravDt;
+    MTL::Buffer* _gravNextActiveTime;
     MTL::Buffer* _dhdt;
     MTL::Buffer* _particleIds;
+    MTL::Buffer* _gActive;
 
 
     // ANEOS textures

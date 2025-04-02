@@ -41,13 +41,13 @@ static inline bool checkAndAddLocalExpansion(device int* treeStructure, device M
     return false;
 }
 
-static inline void localToLeaf(device int* treeStructure, device bool* active, device float3* positions, device float3* accelerations, device float* masses, device float* gravNorm, device float* h, device Multipole* multipoles, thread Multipole& mp, thread Local& local, int treePointer, int nParticles) {
+static inline void localToLeaf(device int* treeStructure, device bool* active, device float3* positions, device float3* velocities, device float3* accelerations, device float* masses, device float* gravNorm, device float* h, device Multipole* multipoles, thread Multipole& mp, thread Local& local, int treePointer, int nParticles, device atomic_uint& gravDt, float curDt) {
     // Give acceleration to all child particles:
     int start = treePointer + 2;
     int end = start + nParticles;
     for (int i = start; i < end; i++) {
         int particlePointer = treeStructure[i];
-        float3 x_i = positions[particlePointer];
+        float3 x_i = positions[particlePointer] + 0.5 * curDt * velocities[particlePointer];
         float3 particleAcceleration = L2P(local, x_i);
                     
         for (int j = start; j < end; j++) {
@@ -55,7 +55,7 @@ static inline void localToLeaf(device int* treeStructure, device bool* active, d
                 continue;
             }
             int p_j = treeStructure[j];
-            float3 x_j = positions[p_j];
+            float3 x_j = positions[p_j] + 0.5 * curDt * velocities[p_j];
 
             float3 x_ij = x_i - x_j;
             const float r = fast::length(x_ij);
@@ -69,8 +69,19 @@ static inline void localToLeaf(device int* treeStructure, device bool* active, d
             const float3 r_hat = x_ij / r;
             particleAcceleration -= (m_j * dphi_dr(x_ij, eta_j)) * r_hat;
         }
-        accelerations[particlePointer] = G * particleAcceleration;
-        gravNorm[particlePointer] = length(particleAcceleration);
+        float3 gravForce = G * particleAcceleration;
+        float gnorm = length(gravForce);
+        accelerations[particlePointer] = gravForce;
+        gravNorm[particlePointer] = gnorm / G;
+        
+        float dtF = GDT * sqrt(h[particlePointer] / gnorm);
+
+        float goaldt = clamp(dtF, MIN_DT, MAX_DT);
+        uint integerDt = 1;
+        while (2 * MIN_DT * integerDt < goaldt and 2 * MIN_DT * integerDt < MAX_DT) {
+            integerDt += integerDt;
+        }
+        atomic_fetch_min_explicit(&gravDt, (uint)integerDt, memory_order_relaxed);
     }
 }
 

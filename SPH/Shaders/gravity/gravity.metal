@@ -42,12 +42,19 @@ kernel void upPass(device float3* positions,
                    device int* pointers,
                    device unsigned long* parentIndexes,
                    device float* gravNorm,
-                   device bool* active,
-                   device int* nextActiveTime,
-                   device int* globalTime,
-                   device int& dt,
+                   device float3* velocities,
+                   device uint& gravityDt,
+                   device uint& globalTime,
+                   device uint& gNextActive,
+                   device bool& gActive,
                    uint index [[thread_position_in_grid]])
 {
+    if (globalTime < gNextActive) {
+        if (index == 0) {
+            gActive = false;
+        }
+        return;
+    }
     int treePointer = pointers[index];
     int nParticles = treeStructure[treePointer];
     int dataPointer = treeStructure[treePointer + 1];
@@ -55,15 +62,22 @@ kernel void upPass(device float3* positions,
     if (nParticles == 0) {
         // We are looking at a branch node, so we sum the child multipoles (known in literature as
         // M2M - Multipole to Multipole)
-        multipoles[dataPointer] = M2M(treeStructure, multipoles, active, parentIndexes, index, treePointer);
+        multipoles[dataPointer] = M2M(treeStructure, multipoles, parentIndexes, index, treePointer);
     } else {
         // We are looking at a leaf node, so we sum the child particles (known in literature as P2M
         // - Particle to Multipole)
-        multipoles[dataPointer] = P2M(treeStructure, masses, positions, gravNorm, h, active, nextActiveTime, globalTime, dt, treePointer);
+        multipoles[dataPointer] = P2M(treeStructure, masses, positions, velocities, gravNorm, h, treePointer, gravityDt);
+    }
+    
+    if (treePointer == 0) {
+        gNextActive = globalTime + gravityDt;
+        gravityDt = (int)(MAX_DT / MIN_DT);
+        gActive = true;
     }
 }
 
 kernel void downPass(device float3* positions,
+                     device float3* velocities,
                      device float3* accelerations,
                      device float* masses,
                      device float* h,
@@ -78,8 +92,15 @@ kernel void downPass(device float3* positions,
                      device bool* active,
                      device int& parentStride,
                      device int& stride,
+                     device atomic_uint& gravDt,
+                     device uint& globalTime,
+                     device uint& gNextActiveTime,
+                     device bool& gActive,
                      uint index [[thread_position_in_grid]])
 {
+    if (!gActive) {
+        return;
+    }
     int treePointer = pointers[index];
     
     // We are looking at the root. We won't even try to do a scan all the way up here.
@@ -92,10 +113,6 @@ kernel void downPass(device float3* positions,
     
     int dataPointer = treeStructure[treePointer + 1];
     Multipole mp = multipoles[dataPointer];
-    if (!mp.active) {
-        // If we are inactive, no point calculating our local field.
-        return;
-    }
     
     // Get where we are going to store our unchecked nodes. Everytime we write to this array, we
     // increment our output pointer.
@@ -143,6 +160,7 @@ kernel void downPass(device float3* positions,
     if (nParticles == 0) {
         L2L(treeStructure, multipoles, locals, mp, local, treePointer);
     } else {
-        localToLeaf(treeStructure, active, positions, accelerations, masses, gravNorm, h, multipoles, mp, local, treePointer, nParticles);
+        float curDt = MIN_DT * (gNextActiveTime - globalTime);
+        localToLeaf(treeStructure, active, positions, velocities, accelerations, masses, gravNorm, h, multipoles, mp, local, treePointer, nParticles, gravDt, curDt);
     }
 }

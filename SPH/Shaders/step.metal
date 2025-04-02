@@ -27,8 +27,10 @@ kernel void step(device float3* positions,
                  device float* alpha,
                  device float* da_dt,
                  device float* alphaLoc,
+                 device uint* nextGravActiveTime,
                  uint index [[thread_position_in_grid]])
 {
+    
     if (index == 0) {
         // Advance global time
         globalTime += _dt;

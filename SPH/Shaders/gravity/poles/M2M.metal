@@ -150,7 +150,7 @@ Multipole transformMultipole(Multipole mp, float3 r) {
     return newMp;
 }
 
-Multipole M2M(device int* treeStructure, device Multipole* multipoles, device bool* active, device unsigned long* parentIndexes, uint index, int treePointer) {
+Multipole M2M(device int* treeStructure, device Multipole* multipoles, device unsigned long* parentIndexes, uint index, int treePointer) {
     // If we are looking at a branch (signaled by nParticles == 0), we go through all
     // 8 child nodes twice. The first time to find our center of mass, and the second
     // to sum our children's multipoles
@@ -159,7 +159,6 @@ Multipole M2M(device int* treeStructure, device Multipole* multipoles, device bo
     Multipole mp;
     mp.minGrav = MAXFLOAT;
     mp.pos = { 0, 0, 0 };
-    mp.active = false;
     for (uint i = 0; i < N_EXPANSION_TERMS; i++) {
         mp.expansion[i] = 0;
     }
@@ -171,7 +170,6 @@ Multipole M2M(device int* treeStructure, device Multipole* multipoles, device bo
     // Get the start and end of our child pointers (8 of them starting 2 ahead of treePointer)
     int start = treePointer + 2;
     int end = start + 8;
-    bool allLeaves = true;
     // First pass: we find COM, min and max coords and whether we are active
     for (int i = start; i < end; i++) {
         int childPointer = treeStructure[i];
@@ -188,21 +186,11 @@ Multipole M2M(device int* treeStructure, device Multipole* multipoles, device bo
         mass += childMp.expansion[M];
         mp.pos += childMp.pos * childMp.expansion[M];
         mp.eta = max(mp.eta, childMp.eta);
-        // If at least one child is active, we are active (used to skip inactive
-        // nodes in down pass)
-        if (!mp.active and childMp.active) {
-            mp.active = true;
-        }
-        if (allLeaves and treeStructure[childPointer] == 0) {
-            allLeaves = false;
-        }
         
         mp.max = max(mp.max, childMp.max);
         mp.min = min(mp.min, childMp.min);
     }
     
-//    float3 dims = mp.max - mp.min;
-//    mp.size = max3(dims.x, dims.y, dims.z);
     mp.pos /= mass;
     mp.size = length(max(abs(mp.max - mp.pos), abs(mp.min - mp.pos)));
     
