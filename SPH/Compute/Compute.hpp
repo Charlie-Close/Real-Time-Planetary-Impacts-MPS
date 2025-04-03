@@ -45,6 +45,7 @@ public:
     // Public functions
     void updateOctreeBuffer(MTL::Device* device);
     void gravitationalPass(MTL::CommandBuffer* commandBuffer);
+    void splitGravitationalPass(MTL::CommandQueue* commandQueue);
     void activatePass(MTL::CommandBuffer* commandBuffer);
     void densityPass(MTL::CommandBuffer* commandBuffer, bool step = true);
     void accelerationPass(MTL::CommandBuffer* commandBuffer);
@@ -173,6 +174,7 @@ private:
     MTL::Buffer* _dhdt;
     MTL::Buffer* _particleIds;
     MTL::Buffer* _gActive;
+    MTL::Buffer* _localMaxH;
 
 
     // ANEOS textures

@@ -117,9 +117,9 @@ vertex VertOut vertexSphere(device const float3* vertexData [[buffer(0)]],
     float3 gradRho = densityGradients[instanceId];
     float gradMag = length(gradRho);
     float rho = densities[instanceId];
-    float weight = gradMag > 1e-12 ? clamp(1000 * (rho - 0.001), 0.f, 1.f) : 0;
+    float weight = gradMag > 1e-12 ? clamp(2000 * (rho - 0.001), 0.f, 1.f) : 0;
 //    float weight = gradMag > 1e-12 ? clamp(2000 * rho, 0.f, 1.f) : 0;
-    o.weight = min(weight, .9f);
+    o.weight = min(weight, 1.f);
     o.rhoGradNorm = gradRho / gradMag;
     float size = PARTICLE_SIZE * rho * h[instanceId];
     
@@ -247,7 +247,7 @@ kernel void determineVisibility(device float3* positions,
         float g1 = 1 / g;
         float3 normal = - densityGradient * g1;
         float distToEdge = 0.3 * (rho - 0.001) * g1;
-        visible = distToEdge < 2 && (dot(x_i - cameraPos, normal) > 0 or dot(float3(LIGHT_DIRECTION), normal) > 0);
+        visible = distToEdge < 4 * sqrt(h_i) && (dot(x_i - cameraPos, normal) > 0 or dot(float3(LIGHT_DIRECTION), normal) > 0);
     } else {
         visible = true;
     }

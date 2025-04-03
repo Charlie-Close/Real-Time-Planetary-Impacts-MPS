@@ -17,10 +17,9 @@
 #define MAX_SMOOTHING_LENGTH 1.f
 #define MAX_DENSITY_NR_ITTERATIONS 50
 #define N_NEIGHBOURS_ESTIM 128 //Estimate number of neighbours. Used for caching on density pass. If too small, can't use cache.
-#define THREADGROUP_CACHE_SIZE 512
+#define THREADGROUP_CACHE_SIZE 128
 #define RESOLUTION_ETA 1.2348
 #define PARTICLE_IN_RANGE_THRESHOLD 10 // For choosing which method to use with NR
-#define ACC_LOOK_EXTEND 1.f
 
 // EOS
 #define ANEOS_TEXTURE_RESOLUTION 2048
@@ -38,7 +37,7 @@
 #define GDT .5f // For gravity time stepping
 #define MIN_DT .001f
 #define MAX_DT 100.f
-#define STEPS_PER_FRAME 2 // Can set to 0 for headless mode to split frame up into multiple steps
+#define STEPS_PER_FRAME 3 // Can set to 0 for headless mode to split frame up into multiple steps
 //#define WENDLAND_C2_KERNEL
 #define CUBIC_SPLINE_KERNEL
 //#define QUARTIC_SPLINE_KERNEL
@@ -48,8 +47,8 @@
 #define P 3 // Power of multipole expansion (max is 4). Higher is faster at lower etas.
 #define N_EXPANSION_TERMS ((P+1)*(P+2)*(P+3)/6)
 #define MAX_TREE_DEPTH 100
-#define GRAVITY_SMOOTHING_LENGTH .16f
-#define PLUMBER_EQUIVALENT 0.3333333
+#define GRAVITY_SMOOTHING_LENGTH .48f
+#define PLUMBER_EQUIVALENT 3.f
 #define GRAVITY_MAX_RECURSION 3
 #define MAX_UNCHECKED_POINTERS 32 // For FMM, max pointers at lowest level
 #define MAX_CHILDREN_IN_LEAF 4
@@ -58,7 +57,7 @@
 
 // Cells and sorting
 #define CELL_WIDTH .3f
-#define CELL_POWER 7 // total number of cells is 2^(3 * CELL_POWER)
+#define CELL_POWER 8 // total number of cells is 2^(3 * CELL_POWER)
 #define SORTING_BLOCK_SIZE 256
 #define SORTING_MASK_LENGTH 8
 #define SORTING_BUCKET_NUMBER (1 << SORTING_MASK_LENGTH)
@@ -73,8 +72,9 @@
 //#define FILEPATH "demo_impact_n65.hdf5"
 //#define FILEPATH "saves_n65/state_12.hdf5"
 //#define FILEPATH "demo_impact_n70.hdf5"
-//#define FILEPATH "demo_impact_n70_3.hdf5"
-//#define FILEPATH "saves_n70_grav/state_72.hdf5"
+//#define FILEPATH "demo_target_n75.hdf5"
+//#define FILEPATH "demo_impact_n75_2.hdf5"
+//#define FILEPATH "saves_n75_grav/state_3.hdf5"
 //#define FILEPATH "demo_impactor_n70.hdf5"
 //#define FILEPATH "demo_target_n70.hdf5"
 //#define FILEPATH "demo_impact_n70_2.hdf5"
@@ -102,7 +102,7 @@
 
 // Rendering
 //#define PARTICLE_SIZE 50
-#define PARTICLE_SIZE 150
+#define PARTICLE_SIZE 180
 //#define PARTICLE_SIZE 500
 #define PARTICLE_SUBDIVITIONS 0
 #define STARTING_POSITION 315, 355, 100
@@ -117,9 +117,9 @@
 #define HEADLESS false
 #define SNAPSHOT_RESOLUTION 4096
 #define HEADLESS_ITTERATION_RATE_REFRESH 16
-#define START_SNAPSHOT 72 // if running from a saved state
-#define SNAPSHOT_DIR "snapshots_n70_grav"
-#define SAVES_DIR "saves_n70_grav"
+#define START_SNAPSHOT 3 // if running from a saved state
+#define SNAPSHOT_DIR "snapshots_n75_grav"
+#define SAVES_DIR "saves_n75_grav"
 #define N_SNAPSHOTTERS 4
 #define POSITIONS { (simd::float3){315, 355, 100}, (simd::float3){350, 355, 260}, (simd::float3){262, 362, 280}, (simd::float3){248, 306, 238} }
 #define PITCHES { -10, -30, -34, 3 }

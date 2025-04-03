@@ -10,6 +10,13 @@
 #include "utils/eos.h"
 #include "../Parameters.h"
 
+struct CachedData {
+    packed_float3 position;
+    float h;
+    float supportRadiusSqrd;
+};
+
+
 kernel void acceleration(device float3* positions,
                          device float3* velocities,
                          device float3* accelerations,
@@ -38,12 +45,37 @@ kernel void acceleration(device float3* positions,
                          device float* da_dt,
                          device float* alphaLoc,
                          device float* pAlphaLoc,
+                         device float* localmaxH,
                          uint index [[thread_position_in_grid]],
                          uint localId [[thread_position_in_threadgroup]],
                          uint threadsPerGroup [[threads_per_threadgroup]])
 {
     uint ind = cellData[index].y;
-    float3 x_i = positions[ind];
+    
+    threadgroup uint cacheIndicies[THREADGROUP_CACHE_SIZE];
+    threadgroup CachedData cache[THREADGROUP_CACHE_SIZE];
+    for (int i = localId; i < THREADGROUP_CACHE_SIZE; i+= threadsPerGroup) {
+        cacheIndicies[i] = UINT_MAX;
+    }
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    
+    CachedData data_i = {
+        positions[ind],
+        h[ind],
+        GAMMA * GAMMA * h[ind] * h[ind],
+    };
+    
+    int key = ind & (THREADGROUP_CACHE_SIZE - 1);
+    cacheIndicies[key] = ind;
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    if (cacheIndicies[key] == ind) {
+        cache[key] = data_i;
+    }
+        
+    threadgroup_barrier(mem_flags::mem_threadgroup);
     
     // If we are inactive this timestep, we skip
     if (!active[ind]) {
@@ -57,14 +89,14 @@ kernel void acceleration(device float3* positions,
     float fact_i = pressures[ind] * gradientTerms[ind] / (rho_i * rho_i);
     float3 v_i = velocities[ind];
     float c_i = speedsOfSound[ind];
-    float h_i = h[ind];
     float B_i = balsara[ind];
-    float hi1 = 1 / h_i;
-    float hSupportSquared = GAMMA * GAMMA * h_i * h_i;
+    float hi1 = 1 / data_i.h;
     float alpha_i = alpha[ind];
     float H1 = hi1 * gamma1;
     float W_kernal_fac = KERNEL_CONSTANT * H1 * H1 * H1;
     float gW_kernal_fac = KERNEL_CONSTANT * H1 * H1 * H1 * H1;
+    float lmh = localmaxH[ind];
+    float maxSRadSqrd = GAMMA * GAMMA * lmh * lmh;
     
     
 
@@ -75,7 +107,7 @@ kernel void acceleration(device float3* positions,
     float alpha_loc = (masses[ind] / rho_i) * pAlphaLoc[ind] * W_fast(0, H1, W_kernal_fac);
     
     // Get our surrounding cells
-    CellToScanRange range = setCellsToScanDynamic(x_i, min(ACC_LOOK_EXTEND * h_i, MAX_SMOOTHING_LENGTH));
+    CellToScanRange range = setCellsToScanDynamic(data_i.position, lmh);
     float v_sigi = 2 * c_i;
     for (int x = range.min.x; x <= range.max.x; x++) {
         for (int y = range.min.y; y <= range.max.y; y++) {
@@ -91,9 +123,9 @@ kernel void acceleration(device float3* positions,
                 // Check if cell is in range
                 float3 cellMin = float3(x, y, z) * CELL_WIDTH;
                 float3 cellMax = cellMin + float3(CELL_WIDTH, CELL_WIDTH, CELL_WIDTH);
-                float3 distToCell = clamp(x_i, cellMin, cellMax) - x_i; // component-wise clamp
+                float3 distToCell = clamp(data_i.position, cellMin, cellMax) - data_i.position; // component-wise clamp
                 float distToCell2 = dot(distToCell, distToCell);
-                if (distToCell2 > ACC_LOOK_EXTEND * ACC_LOOK_EXTEND * hSupportSquared) {
+                if (distToCell2 > maxSRadSqrd) {
                   continue;
                 }
                 
@@ -106,18 +138,26 @@ kernel void acceleration(device float3* positions,
                     if (largeBoundCellIndex != largeBoundCellParticles[j]) {
                         continue;
                     }
-
-                    float3 x_j = positions[j];
                     
-                    float3 x_ij = x_i - x_j;
+                    uint key = j & (THREADGROUP_CACHE_SIZE - 1);
+                    CachedData data_j;
+                    if (cacheIndicies[key] == j) {
+                        data_j = cache[key];
+                    } else {
+                        data_j.position = positions[j];
+                        data_j.h = h[j];
+                        float hjSupport = GAMMA * data_j.h;
+                        data_j.supportRadiusSqrd = hjSupport * hjSupport;
+                    }
+                    
+                    float3 x_ij = data_i.position - data_j.position;
                     float r2 = length_squared(x_ij);
-                    float h_j = h[j];
-                    float hjSupport = GAMMA * h_j;
-                    if ((r2 > hSupportSquared and r2 > hjSupport * hjSupport) or r2 < 1e-12) {
+                    if ((r2 > data_i.supportRadiusSqrd and r2 > data_j.supportRadiusSqrd) or r2 < 1e-12) {
                         // Cell is out of range or on top of us, skip.
                         continue;
                     }
                     // Fetch and calculate info about particle
+                    lmh = max(lmh, data_j.h);
                     float r = sqrt(r2);
                     float r1 = 1 / r;
                     float m_j = masses[j];
@@ -133,7 +173,7 @@ kernel void acceleration(device float3* positions,
 
                     
                     float3 gW_i = gradW_fast(x_ij, r, r1, H1, gW_kernal_fac);
-                    float3 gW_j = gradW(x_ij, r, r1, 1 / h_j);
+                    float3 gW_j = gradW(x_ij, r, r1, 1 / data_j.h);
                     float W_i = W_fast(r, H1, W_kernal_fac);
                     
                     // Acceleration terms
@@ -150,7 +190,8 @@ kernel void acceleration(device float3* positions,
         }
     }
     
-    const float tau = h_i / (0.1 * v_sigi);
+    localmaxH[ind] = lmh;
+    const float tau = data_i.h / (0.1 * v_sigi);
     alpha_loc = clamp(alpha_loc, ALPHA_MIN, ALPHA_MAX);
     if (alpha_i < alpha_loc) {
         alpha_i = alpha_loc;
@@ -160,7 +201,7 @@ kernel void acceleration(device float3* positions,
     alphaLoc[ind] = alpha_loc;
 
     // Time stepping criterion.
-    float dtCFL = 2.0f * CFL * GAMMA * h_i / v_sigi;
+    float dtCFL = 2.0f * CFL * GAMMA * data_i.h / v_sigi;
     float goaldt = clamp(dtCFL, MIN_DT, MAX_DT);
     int integerDt = 1;
     while (2 * MIN_DT * integerDt < goaldt and 2 * MIN_DT * integerDt < MAX_DT) {
@@ -171,50 +212,87 @@ kernel void acceleration(device float3* positions,
     // dt is an integer as atomic min doesn't work with floats.
     atomic_fetch_min_explicit(&(*dt), integerDt, memory_order_relaxed);
     dInternalEnergy[ind] = du_dt;
-    dh_dts[ind] = - 0.333333333 * h_i * dh_dt;
+    dh_dts[ind] = - 0.333333333 * data_i.h * dh_dt;
     accelerations[ind] = dv_dt;
 }
 
-kernel void accelerationStep(device float3* positions,
-                             device float3* velocities,
-                             device float3* accelerations,
+struct CachedDataStep {
+    packed_float3 position;
+    packed_float3 velocity;
+    packed_float3 acceleration;
+    float h;
+    float dh_dt;
+};
+
+kernel void accelerationStep(const device float3* positions,
+                             const device float3* velocities,
+                             const device float3* accelerations,
                              device float3* accelerations1,
-                             device float3* grav_accelerations,
-                             device float* densities,
-                             device float* internalEnergies,
-                             device float* masses,
-                             device float* h,
-                             device float* gradientTerms,
-                             device float* speedsOfSound,
+                             const device float3* grav_accelerations,
+                             const device float* densities,
+                             const device float* internalEnergies,
+                             const device float* masses,
+                             const device float* h,
+                             const device float* gradientTerms,
+                             const device float* speedsOfSound,
                              device float* dInternalEnergy,
-                             device float* balsara,
+                             const device float* balsara,
                              device float* dh_dts,
-                             device uint2* cellData,
-                             device int* cellStarts,
-                             device int* cellEnds,
-                             device uint* largeBoundCellParticles,
-                             device bool* active,
-                             device bool* alive,
+                             const device uint2* cellData,
+                             const device int* cellStarts,
+                             const device int* cellEnds,
+                             const device uint* largeBoundCellParticles,
+                             const device bool* active,
+                             const device bool* alive,
                              device int* nextActiveTime,
-                             device int& globalTime,
-                             device int& dt,
-                             device float* pressures,
-                             device int* materialIds,
-                             device float* alpha,
-                             device float* da_dt,
-                             device float* alphaLoc,
-                             texture2d<float, access::sample> texIron [[texture(0)]],
-                             texture2d<float, access::sample> texForesite [[texture(1)]],
-                             texture2d<float, access::sample> texFe [[texture(2)]],
-                             texture2d<float, access::sample> texHHe [[texture(3)]],
-                             texture2d<float, access::sample> texIce [[texture(4)]],
-                             texture2d<float, access::sample> texRock [[texture(5)]],
+                             const device int& globalTime,
+                             const device int& dt,
+                             const device float* pressures,
+                             const device int* materialIds,
+                             const device float* alpha,
+                             const device float* da_dt,
+                             const device float* alphaLoc,
+                             const device float* localMaxH,
+                             const texture2d<float, access::sample> texIron [[texture(0)]],
+                             const texture2d<float, access::sample> texForesite [[texture(1)]],
+                             const texture2d<float, access::sample> texFe [[texture(2)]],
+                             const texture2d<float, access::sample> texHHe [[texture(3)]],
+                             const texture2d<float, access::sample> texIce [[texture(4)]],
+                             const texture2d<float, access::sample> texRock [[texture(5)]],
                              uint index [[thread_position_in_grid]],
                              uint localId [[thread_position_in_threadgroup]],
-                             uint threadsPerGroup [[threads_per_threadgroup]])
+                             uint nThreads [[threads_per_threadgroup]])
 {
     uint ind = cellData[index].y;
     
+    threadgroup uint cacheIndicies[THREADGROUP_CACHE_SIZE];
+    threadgroup CachedDataStep cache[THREADGROUP_CACHE_SIZE];
+    
+    for (int i = localId; i < THREADGROUP_CACHE_SIZE; i+= nThreads) {
+        cacheIndicies[i] = UINT_MAX;
+    }
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+//    
+    CachedDataStep data_i = {
+        positions[ind],
+        velocities[ind],
+        accelerations[ind] + grav_accelerations[ind],
+        h[ind],
+        dh_dts[ind],
+    };
+    
+    int key = ind & (THREADGROUP_CACHE_SIZE - 1);
+    cacheIndicies[key] = ind;
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    if (cacheIndicies[key] == ind) {
+        cache[key] = data_i;
+    }
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
     // If we are inactive this timestep, we skip
     if (!active[ind]) {
         return;
@@ -228,21 +306,22 @@ kernel void accelerationStep(device float3* positions,
     float half_dt = 0.5 * ownDt;
         
     // Get all of our relevant terms
-    float3 a_i = accelerations[ind] + grav_accelerations[ind];
-    float3 x_i = positions[ind] + half_dt * velocities[ind] + 0.5 * half_dt * half_dt * a_i;
-    float rho_i = densities[ind] * exp(-(3 / h[ind]) * dh_dts[ind] * half_dt);
-    float3 v_i = velocities[ind] + half_dt * a_i;
+    float3 x_i = data_i.position + half_dt * data_i.velocity + 0.5 * half_dt * half_dt * data_i.acceleration;
+    float rho_i = densities[ind] * exp(-(3 / data_i.h) * data_i.dh_dt * half_dt);
+    float3 v_i = data_i.velocity + half_dt * data_i.acceleration;
     float u = max(internalEnergies[ind] + half_dt * dInternalEnergy[ind], 0.f);
     float4 pc = eos(materialIds[ind], u, rho_i, texIron, texForesite, texFe, texHHe, texIce, texRock);
     float fact_i = gradientTerms[ind] * pc.x / (rho_i * rho_i);
     float c_i = pc.y;
-    float h_i = clamp(h[ind] * exp((1 / h[ind]) * dh_dts[ind] * half_dt), 1e-12, MAX_SMOOTHING_LENGTH);
+    float h_i = clamp(data_i.h * exp((1 / data_i.h) * data_i.dh_dt * half_dt), 1e-12, MAX_SMOOTHING_LENGTH);
     float B_i = balsara[ind];
     float hi1 = 1 / h_i;
     float hSupportSquared = GAMMA * GAMMA * h_i * h_i;
     float alpha_i = clamp(alphaLoc[ind] + (alpha[ind] - alphaLoc[ind]) * exp(da_dt[ind]), ALPHA_MIN, ALPHA_MAX);
     float H1 = hi1 * gamma1;
     float gW_kernal_fac = KERNEL_CONSTANT * H1 * H1 * H1 * H1;
+    float lmh = localMaxH[ind];
+    float maxSRadSqrd = GAMMA * GAMMA * lmh * lmh;
     
     // Accumulators
     float3 dv_dt = 0;
@@ -250,7 +329,7 @@ kernel void accelerationStep(device float3* positions,
     float dh_dt = 0;
 
     // Get our surrounding cells
-    CellToScanRange range = setCellsToScanDynamic(positions[ind], half_dt * half_dt * length(a_i) + min(ACC_LOOK_EXTEND * h_i, MAX_SMOOTHING_LENGTH));
+    CellToScanRange range = setCellsToScanDynamic(data_i.position, half_dt * half_dt * length(data_i.acceleration) + localMaxH[ind]);
     float v_sigi = 2 * c_i;
     for (int x = range.min.x; x <= range.max.x; x++) {
         for (int y = range.min.y; y <= range.max.y; y++) {
@@ -268,10 +347,10 @@ kernel void accelerationStep(device float3* positions,
                 float3 cellMax = cellMin + float3(CELL_WIDTH, CELL_WIDTH, CELL_WIDTH);
                 float3 distToCell = clamp(x_i, cellMin, cellMax) - x_i; // component-wise clamp
                 float distToCell2 = dot(distToCell, distToCell);
-                if (distToCell2 > ACC_LOOK_EXTEND * ACC_LOOK_EXTEND * hSupportSquared) {
+                if (distToCell2 > maxSRadSqrd) {
                   continue;
                 }
-                
+                                
                 uint largeBoundCellIndex = cellPositionToLargeBoundIndex({ x, y, z });
                 uint end = cellEnds[cellindex] + 1;
                 // For each particle within the cell
@@ -280,29 +359,39 @@ kernel void accelerationStep(device float3* positions,
                     if (largeBoundCellIndex != largeBoundCellParticles[j]) {
                         continue;
                     }
+                
+                    uint key = j & (THREADGROUP_CACHE_SIZE - 1);
+                    CachedDataStep data_j;
+                    if (cacheIndicies[key] == j) {
+                        data_j = cache[key];
+                    } else {
+                        data_j.position = positions[j];
+                        data_j.velocity = velocities[j];
+                        data_j.acceleration = accelerations[j] + grav_accelerations[j];
+                        data_j.h = h[j];
+                        data_j.dh_dt = dh_dts[j];
+                    }
 
-                    float3 a_j = accelerations[j] + grav_accelerations[j];
-                    float3 x_j = positions[j] + half_dt * velocities[j] + 0.5 * half_dt * half_dt * a_j;
-                    
+
+                    float3 x_j = data_j.position + half_dt * data_j.velocity + 0.5 * half_dt * half_dt * data_j.acceleration;
                     float3 x_ij = x_i - x_j;
                     float r2 = length_squared(x_ij);
-                    float h_j = h[j];
-                    h_j = clamp(h_j * exp(dh_dts[j] * half_dt / h_j), 1e-12, MAX_SMOOTHING_LENGTH);
+                    float h_j = clamp(data_j.h * exp(data_j.dh_dt * half_dt / data_j.h), 1e-12, MAX_SMOOTHING_LENGTH);
                     float hjSupport = GAMMA * h_j;
                     if ((r2 > hSupportSquared and r2 > hjSupport * hjSupport) or r2 < 1e-12) {
                         // Cell is out of range or on top of us, skip.
                         continue;
                     }
-                    
+                
                     // Fetch and calculate info about particle
                     float r = sqrt(r2);
                     float r1 = 1 / r;
                     float m_j = masses[j];
-                    float rho_j = densities[j] * exp(-(3 / h[j]) * dh_dts[j] * half_dt);
+                    float rho_j = densities[j] * exp(-(3 / data_j.h) * data_j.dh_dt * half_dt);
                     float u_j = max(internalEnergies[j] + half_dt * dInternalEnergy[j], 0.f);
                     float4 pc = eos(materialIds[j], u_j, rho_j, texIron, texForesite, texFe, texHHe, texIce, texRock);
                     float fact_j = gradientTerms[j] * pc.x / (rho_j * rho_j);
-                    float3 v_j = velocities[j] + half_dt * a_j;
+                    float3 v_j = data_j.velocity + half_dt * data_j.acceleration;
                     float3 v_ij = v_i - v_j;
                     const float v_dot_r = dot(v_ij, x_ij);
                     float mu_ij = v_dot_r < 0 ? v_dot_r * r1 : 0;

@@ -26,6 +26,10 @@ inline void outerProductAdd(thread float3x3& M,
     M[2][2] += scale * v.z * g.z;
 }
 
+struct CachedData {
+    packed_float3 position;
+};
+
 kernel void density(device float3* positions,
                     device float3* velocities,
                     device float* densities,
@@ -50,13 +54,16 @@ kernel void density(device float3* positions,
                     device float3* accelerations,
                     device int& globalTime,
                     device int& gravNextActiveTime,
+                    device float* localMaxH,
                     texture2d<float, access::sample> texIron [[texture(0)]],
                     texture2d<float, access::sample> texForesite [[texture(1)]],
                     texture2d<float, access::sample> texFe [[texture(2)]],
                     texture2d<float, access::sample> texHHe [[texture(3)]],
                     texture2d<float, access::sample> texIce [[texture(4)]],
                     texture2d<float, access::sample> texRock [[texture(5)]],
-                    uint index [[thread_position_in_grid]])
+                    uint index [[thread_position_in_grid]],
+                    uint localId [[thread_position_in_threadgroup]],
+                    uint threadsPerGroup [[threads_per_threadgroup]])
 {
     if (index == 0) {
         int gravDt = gravNextActiveTime - globalTime;
@@ -68,6 +75,29 @@ kernel void density(device float3* positions,
     }
     
     uint ind = cellData[index].y;
+    
+    threadgroup uint cacheIndicies[THREADGROUP_CACHE_SIZE];
+    threadgroup CachedData cache[THREADGROUP_CACHE_SIZE];
+    for (int i = localId; i < THREADGROUP_CACHE_SIZE; i+= threadsPerGroup) {
+        cacheIndicies[i] = UINT_MAX;
+    }
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+        
+    CachedData data_i = {
+        positions[ind],
+    };
+    
+    int key = ind & (THREADGROUP_CACHE_SIZE - 1);
+    cacheIndicies[key] = ind;
+    
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    if (cacheIndicies[key] == ind) {
+        cache[key] = data_i;
+    }
+        
+    threadgroup_barrier(mem_flags::mem_threadgroup);
     
     if (!alive[ind]) {
         return;
@@ -87,7 +117,6 @@ kernel void density(device float3* positions,
         return;
     }
     
-    float3 x_i = positions[ind];
     float mass_i = masses[ind];
     float h_i = h[ind];
     int max_h = 0;
@@ -134,7 +163,7 @@ kernel void density(device float3* positions,
                 particlesInRange++;
             }
         } else {
-            CellToScanRange range = setCellsToScanDynamic(x_i, h_i);
+            CellToScanRange range = setCellsToScanDynamic(data_i.position, h_i);
             nNeighbours = 0;
             for (int x = range.min.x; x <= range.max.x; x++) {
                 for (int y = range.min.y; y <= range.max.y; y++) {
@@ -149,7 +178,7 @@ kernel void density(device float3* positions,
                         // Check if cell is in range
                         float3 cellMin = float3(x, y, z) * CELL_WIDTH;
                         float3 cellMax = cellMin + float3(CELL_WIDTH, CELL_WIDTH, CELL_WIDTH);
-                        float3 distToCell = clamp(x_i, cellMin, cellMax) - x_i; // component-wise clamp
+                        float3 distToCell = clamp(data_i.position, cellMin, cellMax) - data_i.position; // component-wise clamp
                         float distToCell2 = dot(distToCell, distToCell);
                         if (distToCell2 > hSupportSqrd) {
                           continue;
@@ -164,9 +193,16 @@ kernel void density(device float3* positions,
                                 continue;
                             }
                             
-                            float3 x_j = positions[j];
-                            
-                            float3 x_ij = x_j - x_i;
+                            uint key = j & (THREADGROUP_CACHE_SIZE - 1);
+                            CachedData data_j;
+//                            data_j.position = positions[j];
+                            if (cacheIndicies[key] == j) {
+                                data_j = cache[key];
+                            } else {
+                                data_j.position = positions[j];
+                            }
+                                                        
+                            float3 x_ij = data_j.position - data_i.position;
                             float r2 = length_squared(x_ij);
                             if (r2 > hSupportSqrd) {
                                 // Cell out of range, continue
@@ -230,6 +266,7 @@ kernel void density(device float3* positions,
     float3x3 M(0);
     float accDiv = 0;
     float unscaledDensity = 0;
+    float lmh = h_i;
     
     // If we haven't overflowed, we can use our cache to speed things up.
     if (nNeighbours < N_NEIGHBOURS_ESTIM) {
@@ -246,12 +283,13 @@ kernel void density(device float3* positions,
                 float r1 = 1 / r;
                 float3 v_j = velocities[j];
                 float3 v_ij = v_j - v_i;
-                float3 x_ij = positions[j] - x_i;
+                float3 x_ij = positions[j] - data_i.position;
                 float3 gW = gradW_fast(x_ij, r, r1, H1, dh_kernel_fac);
                 velDiv += mass * dot(v_ij, gW);
                 velCurl += mass * cross(v_ij, gW);
                 outerProductAdd(M, -mass, v_ij, gW);
                 accDiv += mass * dot(accelerations[j] - accelerations[ind], gW);
+                lmh = max(h_i, h[j]);
                 
                 // Non physical, just for rendering purposes
                 rhoGrad += 0.25 * mass * (density * gW + 3 * rhoGrads[j] * W_fast(r, H1, kernal_fac));
@@ -260,7 +298,7 @@ kernel void density(device float3* positions,
         }
     } else {
         // Our cache has overflowed. Regrettably we need to loop though surrounding cells.
-        CellToScanRange range = setCellsToScanDynamic(x_i, h_i);
+        CellToScanRange range = setCellsToScanDynamic(data_i.position, h_i);
         for (int x = range.min.x; x <= range.max.x; x++) {
             for (int y = range.min.y; y <= range.max.y; y++) {
                 for (int z = range.min.z; z <= range.max.z; z++) {
@@ -274,7 +312,7 @@ kernel void density(device float3* positions,
                     // Check if cell is in range
                     float3 cellMin = float3(x, y, z) * CELL_WIDTH;
                     float3 cellMax = cellMin + float3(CELL_WIDTH, CELL_WIDTH, CELL_WIDTH);
-                    float3 distToCell = clamp(x_i, cellMin, cellMax) - x_i; // component-wise clamp
+                    float3 distToCell = clamp(data_i.position, cellMin, cellMax) - data_i.position; // component-wise clamp
                     float distToCell2 = dot(distToCell, distToCell);
                     if (distToCell2 > hSupportSqrd) {
                       continue;
@@ -287,9 +325,17 @@ kernel void density(device float3* positions,
                             continue;
                         }
                         
-                        float3 x_j = positions[j];
+                        uint key = j & (THREADGROUP_CACHE_SIZE - 1);
+                        CachedData data_j;
+//                        data_j.position = positions[j];
+                        if (cacheIndicies[key] == j) {
+                            data_j = cache[key];
+                        } else {
+                            data_j.position = positions[j];
+                        }
+                                                    
+                        float3 x_ij = data_j.position - data_i.position;
                         
-                        float3 x_ij = x_j - x_i;
                         float r2 = length_squared(x_ij);
                         if (r2 > hSupport) {
                             // Particle is out of range - skip it.
@@ -307,6 +353,7 @@ kernel void density(device float3* positions,
                             velCurl += mass * cross(v_ij, gW);
                             outerProductAdd(M, - mass, v_ij, gW);
                             accDiv += mass * dot(accelerations[j] - accelerations[ind], gW);
+                            lmh = max(h_i, h[j]);
                             
                             // Non physical, just for rendering purposes
                             rhoGrad += 0.25 * mass * (density * gW + 3 * rhoGrads[j] * W_fast(r, H1, kernal_fac));
@@ -317,6 +364,8 @@ kernel void density(device float3* positions,
             }
         }
     }
+    
+    localMaxH[ind] = lmh;
             
     float sum = 0.0f;
     for (int i = 0; i < 3; i++) {

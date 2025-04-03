@@ -111,18 +111,7 @@ void Headless::step()
                 break;
             }
         }
-        while (true) {
-            MTL::CommandBuffer* pCmd2 = _commandQueue->commandBuffer(cmdDesc);
-            compute->gravitationalPass(pCmd2);
-            pCmd2->commit();
-            pCmd2->waitUntilCompleted();
-            if (pCmd2->status() != MTL::CommandBufferStatusCompleted) {
-                std::cout << "Gravity error, retrying..." << std::endl;
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            } else {
-                break;
-            }
-        }
+        compute->splitGravitationalPass(_commandQueue);
         if (_frame == 0) {
             for (int i = 0; i < DENSITY_GRADIENT_SETTLING_ITTERATIONS; i++) {
                 while (true) {
